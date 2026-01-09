@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Mail, Lock, Loader2, ArrowLeft } from 'lucide-react';
-import logo from '../../assets/smartbadi.png';
+import logo from '../../assets/smartbadi.png'; // Ensure path is correct
 import { supabase } from '../../services/supabaseClient';
 import toast from 'react-hot-toast';
 
@@ -11,11 +11,11 @@ interface LoginPageProps {
   onLoginSuccess: () => void;
 }
 
-export function LoginPage({ 
-  schoolContext, 
-  onBackToLanding, 
-  onSwitchToForgotPassword, 
-  onLoginSuccess 
+export function LoginPage({
+  schoolContext,
+  onBackToLanding,
+  onSwitchToForgotPassword,
+  onLoginSuccess
 }: LoginPageProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -28,19 +28,21 @@ export function LoginPage({
     setLoading(true);
 
     try {
+      // 1. ATTEMPT LOGIN
       const { data, error } = await supabase.auth.signInWithPassword({
         email: email.trim(),
         password: password,
       });
 
       if (error) {
-        toast.error("Invalid Email or Password");
+        toast.error("Invalid Credentials");
         setLoading(false);
         return;
       }
 
       if (data.user) {
-        // రోల్ మరియు స్కూల్ ఐడి చెక్ చేయడం
+        // 2. SECURITY CHECK: Verify School & Role
+        // We fetch the profile to ensure they belong to this specific school portal
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
           .select('role, school_id')
@@ -52,36 +54,40 @@ export function LoginPage({
         const isSuperAdmin = profile?.role === 'super-admin';
         const belongsToSelectedSchool = profile?.school_id === schoolContext?.id;
 
-        // వాలిడేషన్ లాజిక్: సూపర్ అడ్మిన్ కాకపోయినా, తప్పు స్కూల్ సెలెక్ట్ చేసినా ఆపేస్తుంది
+        // 3. ENFORCE SCHOOL BOUNDARY
+        // If not a Super Admin, and the school doesn't match, BLOCK THEM.
         if (!isSuperAdmin && !belongsToSelectedSchool && schoolContext?.id !== undefined) {
-          toast.error("Access Denied: You belong to a different institution.");
-          await supabase.auth.signOut();
+          toast.error("Access Denied: You do not belong to this institution.");
+          await supabase.auth.signOut(); // Kick them out immediately
           setLoading(false);
           return;
         }
 
-        toast.success(isSuperAdmin ? "Welcome Super Admin!" : "Login Successful!");
-        onLoginSuccess(); 
+        toast.success(isSuperAdmin ? "Welcome Super Admin!" : "Secure Connection Established");
+
+        // 4. TRIGGER SUCCESS
+        // This updates the App.tsx state via the AuthContext automatically
+        onLoginSuccess();
       }
     } catch (err: any) {
-      console.error("Login error:", err);
-      toast.error("Login failed");
+      console.error("Login Security Error:", err);
+      toast.error("Authentication failed. Please try again.");
       setLoading(false);
     }
   };
 
   return (
     <div className="bg-white rounded-[40px] shadow-2xl p-10 w-full max-w-md border border-gray-100 relative animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <button 
+      <button
         onClick={onBackToLanding}
         className="absolute left-8 top-10 text-gray-400 hover:text-blue-600 transition-all flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest group"
       >
-        <ArrowLeft size={14} className="group-hover:-translate-x-1 transition-transform" /> 
+        <ArrowLeft size={14} className="group-hover:-translate-x-1 transition-transform" />
         Back to institution selection
       </button>
 
       <div className="flex justify-center mb-6 mt-8">
-        <img src={logo} alt="SmartBadi Logo" className="h-20 object-contain drop-shadow-sm"/>
+        <img src={logo} alt="SmartBadi Logo" className="h-20 object-contain drop-shadow-sm" />
       </div>
 
       <div className="text-center mb-10">
@@ -128,7 +134,7 @@ export function LoginPage({
         </div>
 
         <div className="flex justify-end pr-2">
-          <button 
+          <button
             type="button"
             onClick={onSwitchToForgotPassword}
             className="text-[10px] font-bold text-blue-500 hover:text-blue-700 uppercase tracking-widest"
@@ -142,10 +148,10 @@ export function LoginPage({
           disabled={loading}
           className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 shadow-xl shadow-blue-100 transition-all flex items-center justify-center gap-2 active:scale-95 disabled:opacity-70 disabled:active:scale-100"
         >
-          {loading ? (  
+          {loading ? (
             <>
               <Loader2 className="animate-spin" size={20} />
-              <span className="animate-pulse">Verifying...</span>
+              <span className="animate-pulse">Verifying Security...</span>
             </>
           ) : 'Verify & Enter'}
         </button>

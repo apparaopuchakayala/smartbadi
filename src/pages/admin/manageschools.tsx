@@ -1,13 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../services/supabaseClient';
+import { useAuth } from '../../context/AuthProvider'; 
 import {
   Plus, Building2, MapPin, Trash2, Edit2,
-  Loader2, Calendar, AlertTriangle, CheckCircle2, X, Save, Clock, CreditCard, Power, Play, ShieldCheck
+  Loader2, AlertTriangle, X, CreditCard, Power, Play, ShieldCheck, Clock
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 
 export function ManageSchools() {
+  // 1. SECURE CONTEXT: Ensure we have a valid session before acting
+  const { session } = useAuth();
+
   const [schools, setSchools] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [newSchool, setNewSchool] = useState({ name: '', location: '', subscription: '30' });
@@ -25,19 +29,22 @@ export function ManageSchools() {
   const [editData, setEditData] = useState({ id: '', name: '', location: '', valid_until: '' });
   const [isSaving, setIsSaving] = useState(false);
 
+  // --- SECURE DATA FETCHING ---
   const fetchSchools = async () => {
-    const { data } = await supabase.from('schools').select('*').order('created_at', { ascending: false });
-    if (data) setSchools(data);
+    // RLS Policy automatically filters data based on user role
+    const { data, error } = await supabase.from('schools').select('*').order('created_at', { ascending: false });
+    
+    if (error) {
+      toast.error("Failed to load institutions");
+    } else if (data) {
+      setSchools(data);
+    }
     setLoading(false);
   };
 
-  useEffect(() => { fetchSchools(); }, []);
-
-  const calculateExpiry = (days: string) => {
-    const date = new Date();
-    date.setDate(date.getDate() + parseInt(days));
-    return date.toISOString();
-  };
+  useEffect(() => { 
+    if (session) fetchSchools(); 
+  }, [session]);
 
   const initiateToggle = (school: any) => {
     setSelectedSchool(school);
@@ -45,7 +52,9 @@ export function ManageSchools() {
   };
 
   const processToggle = async () => {
+    if (!session) return; // Guard clause
     setIsSaving(true);
+    
     const newStatus = !selectedSchool.is_active;
     const { error } = await supabase
       .from('schools')
@@ -64,6 +73,8 @@ export function ManageSchools() {
 
   const handleAddSchool = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!session) return;
+
     const expiryDate = new Date();
     expiryDate.setDate(expiryDate.getDate() + parseInt(newSchool.subscription));
 
@@ -71,8 +82,10 @@ export function ManageSchools() {
       { name: newSchool.name, location: newSchool.location, valid_until: expiryDate.toISOString(), is_active: true }
     ]);
 
-    if (error) toast.error("Error onboarding");
-    else {
+    if (error) {
+        console.error("Add Error:", error);
+        toast.error("Error onboarding institution");
+    } else {
       setShowAddSuccess(true);
       setTimeout(() => setShowAddSuccess(false), 1000);
       setNewSchool({ name: '', location: '', subscription: '30' });
@@ -86,30 +99,48 @@ export function ManageSchools() {
   };
 
   const handleUpdateSchool = async () => {
+    if (!session) return;
     setIsSaving(true);
+    
     const { error } = await supabase.from('schools').update({
       name: editData.name,
       location: editData.location,
       valid_until: editData.valid_until
     }).eq('id', editData.id);
-    if (!error) { toast.success("Updated!"); setIsEditModalOpen(false); fetchSchools(); }
+    
+    if (!error) { 
+        toast.success("Updated Successfully"); 
+        setIsEditModalOpen(false); 
+        fetchSchools(); 
+    } else {
+        toast.error("Update Failed");
+    }
     setIsSaving(false);
   };
 
   const handleBulkExtension = async (days: string) => {
+    if (!session) return;
     setIsSaving(true);
     try {
       const { data: allSchools } = await supabase.from('schools').select('id, valid_until');
-      const updatePromises = allSchools?.map(school => {
+      
+      if (!allSchools) return;
+
+      const updatePromises = allSchools.map(school => {
         const currentExpiry = new Date(school.valid_until > new Date().toISOString() ? school.valid_until : new Date());
         currentExpiry.setDate(currentExpiry.getDate() + parseInt(days));
         return supabase.from('schools').update({ valid_until: currentExpiry.toISOString() }).eq('id', school.id);
       });
-      if (updatePromises) await Promise.all(updatePromises);
-      toast.success("Bulk update done!");
+      
+      await Promise.all(updatePromises);
+      toast.success("Bulk update completed!");
       setShowExtendModal(false);
       fetchSchools();
-    } finally { setIsSaving(false); }
+    } catch (err) {
+        toast.error("Bulk update failed");
+    } finally { 
+        setIsSaving(false); 
+    }
   };
 
   const initiateDelete = (school: any) => {
@@ -119,8 +150,16 @@ export function ManageSchools() {
   };
 
   const processDelete = async () => {
+    if (!session) return;
+    
     const { error } = await supabase.from('schools').delete().eq('id', selectedSchool.id);
-    if (!error) { toast.success("Deleted"); fetchSchools(); setShowConfirm(false); }
+    if (!error) { 
+        toast.success("Institution Deleted"); 
+        fetchSchools(); 
+        setShowConfirm(false); 
+    } else {
+        toast.error("Delete Failed");
+    }
   };
 
   return (
@@ -139,9 +178,6 @@ export function ManageSchools() {
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* MODALS (Toggle, Edit, Bulk, Delete - logic remains same) */}
-      {/* ... [Modals sections are same as previous code, keeping it clean] ... */}
 
       {/* 2. TOGGLE SERVICE MODAL */}
       <AnimatePresence>

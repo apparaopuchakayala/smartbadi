@@ -46,7 +46,7 @@ export function SchoolSelector({ onSchoolSelect }: { onSchoolSelect: (school: an
     <div className="bg-white rounded-[40px] shadow-2xl p-8 w-full max-w-lg border border-blue-50 text-center animate-in fade-in duration-500">
       <img src={logo} alt="SmartBadi" className="h-20 mx-auto mb-6 object-contain" />
       <h1 className="text-2xl font-bold text-gray-800">Find Your Institution</h1>
-      <p className="text-gray-400 text-xs mt-2">Type the first letter of your school</p>
+      <p className="text-gray-400 text-xs mt-2"></p>
 
       {error && (
         <div className="mt-4 p-3 bg-red-50 text-red-600 text-xs rounded-xl flex gap-2 items-center justify-center">
@@ -82,7 +82,7 @@ export function SchoolSelector({ onSchoolSelect }: { onSchoolSelect: (school: an
           // STATE: SEARCH IS EMPTY
           <div className="py-8 flex flex-col items-center justify-center text-slate-300 gap-3">
              <Search size={32} strokeWidth={1.5} />
-             <p className="text-xs font-bold uppercase tracking-widest">Type starting letter to search</p>
+             <p className="text-xs font-bold uppercase tracking-widest">Type starting institution name to search</p>
           </div>
         ) : filtered.length === 0 ? (
           // STATE: NO RESULTS FOUND

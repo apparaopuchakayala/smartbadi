@@ -5,14 +5,14 @@ import {
   Building2, Users, Mail, Trash2,
   Loader2, X, Plus, Search,
   ChevronRight, Crown, ShieldAlert,
-  GraduationCap, User, Fingerprint, ChevronDown, Check
+  GraduationCap, User, Fingerprint, ChevronDown, Check,
+  School
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 
 export function StaffManagement() {
-  // GET SECURE CONTEXT
-  const { session } = useAuth();
+  const { session, profile } = useAuth();
 
   const [schools, setSchools] = useState<any[]>([]);
   const [selectedSchool, setSelectedSchool] = useState<any>(null);
@@ -37,31 +37,45 @@ export function StaffManagement() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [memberToDelete, setMemberToDelete] = useState<any>(null);
 
-  // --- INITIALIZATION ---
   useEffect(() => {
-    fetchSchools();
-    const savedSchool = localStorage.getItem('lastSelectedSchool');
-    if (savedSchool) {
-      try {
-        const parsed = JSON.parse(savedSchool);
-        fetchStaff(parsed);
-      } catch (e) { localStorage.removeItem('lastSelectedSchool'); }
+    if (profile && profile.role !== 'super-admin' && profile.schools) {
+        const mySchool = {
+            id: profile.school_id,
+            name: profile.schools.name,
+            location: profile.schools.location
+        };
+        fetchStaff(mySchool);
+    } else {
+        fetchSchools(); // ఇది ఇప్పుడు కౌంట్స్ తో సహా తెస్తుంది
+        const savedSchool = localStorage.getItem('lastSelectedSchool');
+        if (savedSchool) {
+            try {
+                const parsed = JSON.parse(savedSchool);
+                fetchStaff(parsed);
+            } catch (e) { localStorage.removeItem('lastSelectedSchool'); }
+        }
     }
-  }, []);
+  }, [profile]);
 
-  // --- DATA FETCHING (SECURE) ---
+  // --- 1. UPDATED FETCH LOGIC (Get Counts) ---
   const fetchSchools = async () => {
-    const { data } = await supabase.from('schools').select('*').order('name');
+    // ఇక్కడ profiles(role) అని పెట్టడం వల్ల, ఆ స్కూల్ లో ఉన్న ప్రొఫైల్స్ రోల్స్ కూడా వస్తాయి
+    const { data, error } = await supabase
+      .from('schools')
+      .select('*, profiles(role)') 
+      .order('name');
+      
     if (data) setSchools(data);
     if (!localStorage.getItem('lastSelectedSchool')) setLoading(false);
   };
 
   const fetchStaff = async (school: any) => {
     setSelectedSchool(school);
-    localStorage.setItem('lastSelectedSchool', JSON.stringify(school));
+    if (profile?.role === 'super-admin') {
+        localStorage.setItem('lastSelectedSchool', JSON.stringify(school));
+    }
     setLoading(true);
 
-    // RLS Policy ensures we only see what we are allowed to see
     const { data } = await supabase
       .from('profiles')
       .select('*')
@@ -72,11 +86,11 @@ export function StaffManagement() {
     setLoading(false);
   };
 
-  // --- ACTIONS ---
-
+  // ... (ACTIONS are same as before - handleRoleChange, toggleMandatory, handleAddUser, processDelete, togglePermission) ...
+  // స్థలం ఆదా కోసం ఆ ఫంక్షన్స్ పాతవే ఉంచండి (handleAddUser, etc.)
+  
   const handleRoleChange = (role: string) => {
     setFormData({ ...formData, role });
-    // Smart Defaults based on Role
     if (role === 'teacher') {
       setMandatoryFields({
         full_name: true, email: true, encrypted_password: true,
@@ -94,25 +108,15 @@ export function StaffManagement() {
     setMandatoryFields((prev: any) => ({ ...prev, [field]: !prev[field] }));
   };
 
-  // --- 1000% SECURE CREATE FUNCTION (FIXED) ---
   const handleAddUser = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
-
     try {
-      // 1. GET FRESH TOKEN (తాజా టోకెన్ తెచ్చుకోవడం)
-      const { data: { session: freshSession }, error: sessionError } = await supabase.auth.getSession();
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Session expired");
 
-      // టోకెన్ ఉందో లేదో చెక్ చేయడం
-      if (sessionError || !freshSession?.access_token) {
-        throw new Error("Session expired. Please refresh the page and login again.");
-      }
-
-      console.log("Using Fresh Token:", freshSession.access_token.substring(0, 10) + "...");
-
-      // 2. INVOKE EDGE FUNCTION (టోకెన్‌ని బలవంతంగా పంపడం)
+      // Simple secure call (assuming JWT verification is handled or OFF for now)
       const { data, error } = await supabase.functions.invoke('create-user', {
-
         body: {
           email: formData.email,
           password: formData.encrypted_password,
@@ -125,32 +129,25 @@ export function StaffManagement() {
             dob: formData.dob || null,
             subject_teaching: formData.subject_teaching,
             encrypted_password: formData.encrypted_password,
-            is_active : true
+            is_active: true
           }
         }
       });
 
-      // 3. ROBUST ERROR HANDLING
-      if (error) {
-        let msg = error.message;
-        try { msg = (await error.context.json()).error || msg; } catch (e) { }
-        throw new Error(msg);
-      }
-
+      if (error) throw new Error(error.message);
       if (data?.error) throw new Error(data.error);
 
-      // 4. SUCCESS
-      toast.success("STAFF MEMBER CREATED SECURELY");
+      toast.success("STAFF MEMBER CREATED");
       setShowAddModal(false);
       setFormData({
         full_name: '', email: '', encrypted_password: '', role: 'teacher',
         employee_id: '', mobile_number: '', dob: '', subject_teaching: ''
       });
       fetchStaff(selectedSchool);
+      if(profile?.role === 'super-admin') fetchSchools(); // Refresh counts on card
 
     } catch (err: any) {
-      console.error("Secure Create Error:", err);
-      toast.error(err.message || "Failed to create user");
+      toast.error(err.message || "Failed");
     } finally {
       setIsSaving(false);
     }
@@ -162,6 +159,7 @@ export function StaffManagement() {
     if (!error) {
       toast.success("RECORD REMOVED");
       fetchStaff(selectedSchool);
+      if(profile?.role === 'super-admin') fetchSchools(); // Refresh counts
       setShowDeleteConfirm(false);
     } else { toast.error("DELETION FAILED"); }
     setIsSaving(false);
@@ -179,10 +177,10 @@ export function StaffManagement() {
 
   return (
     <div className="space-y-12 text-left min-h-screen">
-      {/* HEADER & SCHOOL SELECTOR */}
+      {/* HEADER */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <div>
-          <h1 className="text-4xl font-light text-slate-800 tracking-tight uppercase">Directory</h1>
+          <h1 className="text-4xl font-light text-slate-800 tracking-tight uppercase">Staff Directory</h1>
           <p className="text-slate-400 font-medium text-[10px] tracking-[3px] uppercase mt-1">
             {selectedSchool ? `${selectedSchool.name}` : 'Select Institution'}
           </p>
@@ -202,40 +200,93 @@ export function StaffManagement() {
             <button onClick={() => setShowAddModal(true)} className="bg-blue-600 text-white px-6 py-3.5 rounded-xl text-[11px] font-bold uppercase tracking-widest shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all flex items-center gap-2">
               <Plus size={16} /> Add Entry
             </button>
-            <button onClick={() => { setSelectedSchool(null); localStorage.removeItem('lastSelectedSchool'); }} className="bg-white text-slate-400 px-5 py-3.5 rounded-xl transition-all hover:text-slate-800 border border-slate-100">
-              <ChevronRight className="rotate-180" size={18} />
-            </button>
+            {profile?.role === 'super-admin' && (
+                <button onClick={() => { setSelectedSchool(null); localStorage.removeItem('lastSelectedSchool'); }} className="bg-white text-slate-400 px-5 py-3.5 rounded-xl transition-all hover:text-slate-800 border border-slate-100">
+                <ChevronRight className="rotate-180" size={18} />
+                </button>
+            )}
           </div>
         )}
       </div>
 
       <AnimatePresence mode="wait">
-        {!selectedSchool ? (
+        {!selectedSchool && profile?.role === 'super-admin' ? (
+          /* --- 2. UPDATED CARD DESIGN WITH COUNTS --- */
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {schools.map(school => (
-              <div
-                key={school.id} onClick={() => fetchStaff(school)}
-                className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm hover:shadow-md cursor-pointer transition-all group"
-              >
-                <div className="w-12 h-12 bg-slate-50 text-slate-400 rounded-xl flex items-center justify-center mb-6 group-hover:bg-blue-600 group-hover:text-white transition-all">
-                  <Building2 size={24} />
-                </div>
-                <h3 className="text-xl font-bold text-slate-800 tracking-tight mb-1">{school.name}</h3>
-                <p className="text-xs text-slate-400 font-medium uppercase tracking-wider">{school.location}</p>
-              </div>
-            ))}
+            {schools.map(school => {
+                // Calculate Counts
+                const adminCount = school.profiles?.filter((p: any) => p.role === 'school-admin').length || 0;
+                const teacherCount = school.profiles?.filter((p: any) => p.role === 'teacher').length || 0;
+                const studentCount = school.profiles?.filter((p: any) => p.role === 'student').length || 0;
+
+                return (
+                  <div
+                    key={school.id} onClick={() => fetchStaff(school)}
+                    className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm hover:shadow-lg cursor-pointer transition-all group relative overflow-hidden"
+                  >
+                    {/* Decorative Background Icon */}
+                    <School className="absolute -right-4 -bottom-4 text-slate-50 group-hover:text-blue-50 transition-colors" size={120} strokeWidth={0.5} />
+
+                    <div className="relative z-10">
+                        <div className="flex justify-between items-start mb-4">
+                            <div className="w-12 h-12 bg-blue-50 text-blue-500 rounded-2xl flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-all shadow-sm">
+                                <Building2 size={24} />
+                            </div>
+                            <div className="bg-slate-50 px-3 py-1 rounded-full border border-slate-100">
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{school.location}</span>
+                            </div>
+                        </div>
+                        
+                        <h3 className="text-xl font-bold text-slate-800 tracking-tight mb-6 pr-2 line-clamp-1">{school.name}</h3>
+                        
+                        {/* COUNTS SECTION */}
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 flex flex-col items-center justify-center group-hover:border-blue-100 transition-colors">
+                                <div className="flex items-center gap-1.5 mb-1 text-slate-400">
+                                    <Crown size={12} />
+                                    <span className="text-[9px] font-bold uppercase tracking-wider">Admins</span>
+                                </div>
+                                <span className="text-lg font-black text-slate-700">{adminCount}</span>
+                            </div>
+
+                            <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 flex flex-col items-center justify-center group-hover:border-blue-100 transition-colors">
+                                <div className="flex items-center gap-1.5 mb-1 text-slate-400">
+                                    <Users size={12} />
+                                    <span className="text-[9px] font-bold uppercase tracking-wider">Teachers</span>
+                                </div>
+                                <span className="text-lg font-black text-slate-700">{teacherCount}</span>
+                            </div>
+                        </div>
+                        
+                        {/* Student Count Mini Badge */}
+                        <div className="mt-4 pt-4 border-t border-slate-50 flex items-center justify-between text-slate-400">
+                             <span className="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
+                                <GraduationCap size={14} /> Students
+                             </span>
+                             <span className="text-xs font-bold text-slate-600">{studentCount}</span>
+                        </div>
+                    </div>
+                  </div>
+                );
+            })}
           </div>
         ) : (
           <div className="space-y-16">
-            <DirectorySection title="Administrators" icon={<Crown size={16} />} list={filteredStaff.filter(u => u.role === 'school-admin')} accent="border-blue-100" onDelete={(m: any) => { setMemberToDelete(m); setShowDeleteConfirm(true); }} />
-            <DirectorySection title="Teaching Faculty" icon={<Users size={16} />} list={filteredStaff.filter(u => u.role === 'teacher')} accent="border-slate-100" onDelete={(m: any) => { setMemberToDelete(m); setShowDeleteConfirm(true); }} onToggle={togglePermission} />
-            <DirectorySection title="Students" icon={<GraduationCap size={16} />} list={filteredStaff.filter(u => u.role === 'student')} accent="border-slate-100" onDelete={(m: any) => { setMemberToDelete(m); setShowDeleteConfirm(true); }} />
-            <DirectorySection title="Parents" icon={<User size={16} />} list={filteredStaff.filter(u => u.role === 'parent')} accent="border-slate-100" onDelete={(m: any) => { setMemberToDelete(m); setShowDeleteConfirm(true); }} />
+             {loading ? (
+                <div className="flex justify-center py-20"><Loader2 className="animate-spin text-slate-300" size={40} /></div>
+             ) : (
+                <>
+                    <DirectorySection title="Administrators" icon={<Crown size={16} />} list={filteredStaff.filter(u => u.role === 'school-admin')} accent="border-blue-100" onDelete={(m: any) => { setMemberToDelete(m); setShowDeleteConfirm(true); }} />
+                    <DirectorySection title="Teaching Faculty" icon={<Users size={16} />} list={filteredStaff.filter(u => u.role === 'teacher')} accent="border-slate-100" onDelete={(m: any) => { setMemberToDelete(m); setShowDeleteConfirm(true); }} onToggle={togglePermission} />
+                    <DirectorySection title="Students" icon={<GraduationCap size={16} />} list={filteredStaff.filter(u => u.role === 'student')} accent="border-slate-100" onDelete={(m: any) => { setMemberToDelete(m); setShowDeleteConfirm(true); }} />
+                    <DirectorySection title="Parents" icon={<User size={16} />} list={filteredStaff.filter(u => u.role === 'parent')} accent="border-slate-100" onDelete={(m: any) => { setMemberToDelete(m); setShowDeleteConfirm(true); }} />
+                </>
+             )}
           </div>
         )}
       </AnimatePresence>
 
-      {/* REFINED ADD MODAL */}
+      {/* MODALS & HELPERS (Add User Form, Delete Confirm, etc. - Same as before) */}
       <AnimatePresence>
         {showAddModal && (
           <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
@@ -248,7 +299,6 @@ export function StaffManagement() {
               </div>
 
               <form onSubmit={handleAddUser} className="space-y-10">
-                {/* ROLE SELECTION */}
                 <div className="flex flex-col gap-2">
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Account Role</label>
                   <div className="relative">
@@ -281,7 +331,6 @@ export function StaffManagement() {
         )}
       </AnimatePresence>
 
-      {/* DELETE CONFIRM */}
       <AnimatePresence>
         {showDeleteConfirm && (
           <div className="fixed inset-0 z-[250] flex items-center justify-center p-4">
@@ -302,10 +351,8 @@ export function StaffManagement() {
   );
 }
 
-// --- SUB-COMPONENTS (Reusable & Clean) ---
-
 function DirectorySection({ title, icon, list, accent, onDelete, onToggle }: any) {
-  if (list.length === 0) return null;
+  if (!list || list.length === 0) return null;
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3 px-1">

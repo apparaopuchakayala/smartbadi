@@ -21,7 +21,7 @@ export function StaffManagement() {
   const [searchQuery, setSearchQuery] = useState('');
 
   const [showAddModal, setShowAddModal] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
+  const [isSaving, setIsSaving] = useState(false); // Used for both Add and Delete loading states
 
   // Form State
   const [formData, setFormData] = useState({
@@ -46,7 +46,7 @@ export function StaffManagement() {
       };
       fetchStaff(mySchool);
     } else {
-      fetchSchools(); // ఇది ఇప్పుడు కౌంట్స్ తో సహా తెస్తుంది
+      fetchSchools();
       const savedSchool = localStorage.getItem('lastSelectedSchool');
       if (savedSchool) {
         try {
@@ -57,10 +57,8 @@ export function StaffManagement() {
     }
   }, [profile]);
 
-  // --- 1. UPDATED FETCH LOGIC (Get Counts) ---
   const fetchSchools = async () => {
-    // ఇక్కడ profiles(role) అని పెట్టడం వల్ల, ఆ స్కూల్ లో ఉన్న ప్రొఫైల్స్ రోల్స్ కూడా వస్తాయి
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from('schools')
       .select('*, profiles(role)')
       .order('name');
@@ -85,9 +83,6 @@ export function StaffManagement() {
     setStaff(data || []);
     setLoading(false);
   };
-
-  // ... (ACTIONS are same as before - handleRoleChange, toggleMandatory, handleAddUser, processDelete, togglePermission) ...
-  // స్థలం ఆదా కోసం ఆ ఫంక్షన్స్ పాతవే ఉంచండి (handleAddUser, etc.)
 
   const handleRoleChange = (role: string) => {
     setFormData({ ...formData, role });
@@ -115,7 +110,6 @@ export function StaffManagement() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("Session expired");
 
-      // Simple secure call (assuming JWT verification is handled or OFF for now)
       const { data, error } = await supabase.functions.invoke('create-user', {
         body: {
           email: formData.email,
@@ -144,7 +138,7 @@ export function StaffManagement() {
         employee_id: '', mobile_number: '', dob: '', subject_teaching: ''
       });
       fetchStaff(selectedSchool);
-      if (profile?.role === 'super-admin') fetchSchools(); // Refresh counts on card
+      if (profile?.role === 'super-admin') fetchSchools();
 
     } catch (err: any) {
       toast.error(err.message || "Failed");
@@ -153,36 +147,27 @@ export function StaffManagement() {
     }
   };
 
-  // --- UPDATED DELETE FUNCTION (Server-Side) ---
   const processDelete = async () => {
-    setIsSaving(true);
+    setIsSaving(true); // START LOADING
     try {
       console.log("Deleting User via Edge Function...");
-
-      // Call the Secure Edge Function
       const { data, error } = await supabase.functions.invoke('delete-user', {
-        body: {
-          target_id: memberToDelete.id
-        }
+        body: { target_id: memberToDelete.id }
       });
 
       if (error) throw new Error(error.message);
       if (data?.error) throw new Error(data.error);
 
-      // Success
       toast.success("USER DELETED PERMANENTLY");
-
-      // Update Lists
       fetchStaff(selectedSchool);
       if (profile?.role === 'super-admin') fetchSchools();
-
       setShowDeleteConfirm(false);
 
     } catch (err: any) {
       console.error("Delete Error:", err);
       toast.error("Failed to delete user from Auth");
     } finally {
-      setIsSaving(false);
+      setIsSaving(false); // STOP LOADING
     }
   };
 
@@ -232,20 +217,18 @@ export function StaffManagement() {
 
       <AnimatePresence mode="wait">
         {!selectedSchool && profile?.role === 'super-admin' ? (
-          /* --- 2. UPDATED CARD DESIGN WITH COUNTS --- */
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {schools.map(school => {
-              // Calculate Counts
               const adminCount = school.profiles?.filter((p: any) => p.role === 'school-admin').length || 0;
               const teacherCount = school.profiles?.filter((p: any) => p.role === 'teacher').length || 0;
               const studentCount = school.profiles?.filter((p: any) => p.role === 'student').length || 0;
+              const parentCount = school.profiles?.filter((p: any) => p.role === 'parent').length || 0;
 
               return (
                 <div
                   key={school.id} onClick={() => fetchStaff(school)}
                   className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm hover:shadow-lg cursor-pointer transition-all group relative overflow-hidden"
                 >
-                  {/* Decorative Background Icon */}
                   <School className="absolute -right-4 -bottom-4 text-slate-50 group-hover:text-blue-50 transition-colors" size={120} strokeWidth={0.5} />
 
                   <div className="relative z-10">
@@ -260,8 +243,7 @@ export function StaffManagement() {
 
                     <h3 className="text-xl font-bold text-slate-800 tracking-tight mb-6 pr-2 line-clamp-1">{school.name}</h3>
 
-                    {/* COUNTS SECTION */}
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-2 gap-3 mb-4">
                       <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 flex flex-col items-center justify-center group-hover:border-blue-100 transition-colors">
                         <div className="flex items-center gap-1.5 mb-1 text-slate-400">
                           <Crown size={12} />
@@ -269,7 +251,6 @@ export function StaffManagement() {
                         </div>
                         <span className="text-lg font-black text-slate-700">{adminCount}</span>
                       </div>
-
                       <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 flex flex-col items-center justify-center group-hover:border-blue-100 transition-colors">
                         <div className="flex items-center gap-1.5 mb-1 text-slate-400">
                           <Users size={12} />
@@ -279,12 +260,19 @@ export function StaffManagement() {
                       </div>
                     </div>
 
-                    {/* Student Count Mini Badge */}
-                    <div className="mt-4 pt-4 border-t border-slate-50 flex items-center justify-between text-slate-400">
-                      <span className="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
-                        <GraduationCap size={14} /> Students
-                      </span>
-                      <span className="text-xs font-bold text-slate-600">{studentCount}</span>
+                    <div className="pt-4 border-t border-slate-50 grid grid-cols-2 gap-4">
+                      <div className="flex items-center justify-between text-slate-400 pr-2">
+                        <span className="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5">
+                          <GraduationCap size={14} /> Students
+                        </span>
+                        <span className="text-xs font-bold text-slate-600">{studentCount}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-slate-400 pl-4 border-l border-slate-100">
+                        <span className="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5">
+                          <User size={14} /> Parents
+                        </span>
+                        <span className="text-xs font-bold text-slate-600">{parentCount}</span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -307,18 +295,16 @@ export function StaffManagement() {
         )}
       </AnimatePresence>
 
-      {/* MODALS & HELPERS (Add User Form, Delete Confirm, etc. - Same as before) */}
+      {/* ADD USER MODAL */}
       <AnimatePresence>
         {showAddModal && (
           <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowAddModal(false)} className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" />
             <motion.div initial={{ scale: 0.98, y: 10 }} animate={{ scale: 1, y: 0 }} className="relative bg-white w-full max-w-3xl rounded-[32px] p-8 md:p-12 shadow-2xl overflow-y-auto max-h-[90vh] border border-slate-100">
-
               <div className="flex justify-between items-center mb-10">
                 <h2 className="text-2xl font-light tracking-tight text-slate-800 uppercase">Create <span className="font-bold text-blue-600">Entry</span></h2>
                 <button onClick={() => setShowAddModal(false)} className="text-slate-300 hover:text-slate-800 transition-colors"><X size={24} /></button>
               </div>
-
               <form onSubmit={handleAddUser} className="space-y-10">
                 <div className="flex flex-col gap-2">
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Account Role</label>
@@ -332,7 +318,6 @@ export function StaffManagement() {
                     <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 pointer-events-none" size={18} />
                   </div>
                 </div>
-
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-6">
                   <FormInput label="Full Name" value={formData.full_name} onChange={(v: string) => setFormData({ ...formData, full_name: v })} isReq={mandatoryFields.full_name} onToggle={() => toggleMandatory('full_name')} />
                   <FormInput label="Email Address" value={formData.email} type="email" onChange={(v: string) => setFormData({ ...formData, email: v })} isReq={mandatoryFields.email} onToggle={() => toggleMandatory('email')} />
@@ -342,7 +327,6 @@ export function StaffManagement() {
                   <FormInput label="Birth Date" value={formData.dob} type="date" onChange={(v: string) => setFormData({ ...formData, dob: v })} isReq={mandatoryFields.dob} onToggle={() => toggleMandatory('dob')} />
                   <FormInput label="Subject / Grade" value={formData.subject_teaching} onChange={(v: string) => setFormData({ ...formData, subject_teaching: v })} isReq={mandatoryFields.subject_teaching} onToggle={() => toggleMandatory('subject_teaching')} />
                 </div>
-
                 <button disabled={isSaving} type="submit" className="w-full py-5 bg-slate-900 text-white rounded-xl text-xs font-bold uppercase tracking-[3px] shadow-xl hover:bg-blue-600 transition-all flex items-center justify-center gap-4">
                   {isSaving ? <Loader2 className="animate-spin" size={20} /> : `Confirm Registration`}
                 </button>
@@ -352,17 +336,39 @@ export function StaffManagement() {
         )}
       </AnimatePresence>
 
+      {/* DELETE CONFIRM MODAL (UPDATED WITH LOADING) */}
       <AnimatePresence>
         {showDeleteConfirm && (
           <div className="fixed inset-0 z-[250] flex items-center justify-center p-4">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowDeleteConfirm(false)} className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" />
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" />
             <motion.div initial={{ scale: 0.98 }} animate={{ scale: 1 }} className="relative bg-white w-full max-w-md rounded-3xl p-10 text-center shadow-2xl">
               <div className="w-16 h-16 bg-red-50 text-red-500 rounded-2xl flex items-center justify-center mx-auto mb-6"><ShieldAlert size={32} /></div>
               <h2 className="text-xl font-bold text-slate-800 uppercase tracking-tight mb-2">Delete Record</h2>
               <p className="text-slate-400 text-sm font-medium mb-8">This action will remove {memberToDelete?.full_name} permanently.</p>
+              
               <div className="flex gap-4">
-                <button onClick={processDelete} className="flex-1 py-4 bg-red-500 text-white rounded-xl font-bold uppercase text-[10px] tracking-widest shadow-lg shadow-red-100 hover:bg-red-600 transition-all">Delete</button>
-                <button onClick={() => setShowDeleteConfirm(false)} className="flex-1 py-4 bg-slate-50 text-slate-400 rounded-xl font-bold uppercase text-[10px] tracking-widest hover:bg-slate-100 transition-all">Cancel</button>
+                {/* DELETE BUTTON: Added Loading State & Disabled Check */}
+                <button 
+                  onClick={processDelete} 
+                  disabled={isSaving}
+                  className="flex-1 py-4 bg-red-500 text-white rounded-xl font-bold uppercase text-[10px] tracking-widest shadow-lg shadow-red-100 hover:bg-red-600 transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                >
+                  {isSaving ? (
+                    <>
+                      <Loader2 className="animate-spin" size={14} />
+                      Deleting...
+                    </>
+                  ) : "Delete"}
+                </button>
+
+                {/* CANCEL BUTTON: Disabled during saving */}
+                <button 
+                  onClick={() => setShowDeleteConfirm(false)} 
+                  disabled={isSaving}
+                  className="flex-1 py-4 bg-slate-50 text-slate-400 rounded-xl font-bold uppercase text-[10px] tracking-widest hover:bg-slate-100 transition-all disabled:opacity-50"
+                >
+                  Cancel
+                </button>
               </div>
             </motion.div>
           </div>

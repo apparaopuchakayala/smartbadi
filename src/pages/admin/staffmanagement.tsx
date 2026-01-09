@@ -39,21 +39,21 @@ export function StaffManagement() {
 
   useEffect(() => {
     if (profile && profile.role !== 'super-admin' && profile.schools) {
-        const mySchool = {
-            id: profile.school_id,
-            name: profile.schools.name,
-            location: profile.schools.location
-        };
-        fetchStaff(mySchool);
+      const mySchool = {
+        id: profile.school_id,
+        name: profile.schools.name,
+        location: profile.schools.location
+      };
+      fetchStaff(mySchool);
     } else {
-        fetchSchools(); // ఇది ఇప్పుడు కౌంట్స్ తో సహా తెస్తుంది
-        const savedSchool = localStorage.getItem('lastSelectedSchool');
-        if (savedSchool) {
-            try {
-                const parsed = JSON.parse(savedSchool);
-                fetchStaff(parsed);
-            } catch (e) { localStorage.removeItem('lastSelectedSchool'); }
-        }
+      fetchSchools(); // ఇది ఇప్పుడు కౌంట్స్ తో సహా తెస్తుంది
+      const savedSchool = localStorage.getItem('lastSelectedSchool');
+      if (savedSchool) {
+        try {
+          const parsed = JSON.parse(savedSchool);
+          fetchStaff(parsed);
+        } catch (e) { localStorage.removeItem('lastSelectedSchool'); }
+      }
     }
   }, [profile]);
 
@@ -62,9 +62,9 @@ export function StaffManagement() {
     // ఇక్కడ profiles(role) అని పెట్టడం వల్ల, ఆ స్కూల్ లో ఉన్న ప్రొఫైల్స్ రోల్స్ కూడా వస్తాయి
     const { data, error } = await supabase
       .from('schools')
-      .select('*, profiles(role)') 
+      .select('*, profiles(role)')
       .order('name');
-      
+
     if (data) setSchools(data);
     if (!localStorage.getItem('lastSelectedSchool')) setLoading(false);
   };
@@ -72,7 +72,7 @@ export function StaffManagement() {
   const fetchStaff = async (school: any) => {
     setSelectedSchool(school);
     if (profile?.role === 'super-admin') {
-        localStorage.setItem('lastSelectedSchool', JSON.stringify(school));
+      localStorage.setItem('lastSelectedSchool', JSON.stringify(school));
     }
     setLoading(true);
 
@@ -88,7 +88,7 @@ export function StaffManagement() {
 
   // ... (ACTIONS are same as before - handleRoleChange, toggleMandatory, handleAddUser, processDelete, togglePermission) ...
   // స్థలం ఆదా కోసం ఆ ఫంక్షన్స్ పాతవే ఉంచండి (handleAddUser, etc.)
-  
+
   const handleRoleChange = (role: string) => {
     setFormData({ ...formData, role });
     if (role === 'teacher') {
@@ -144,7 +144,7 @@ export function StaffManagement() {
         employee_id: '', mobile_number: '', dob: '', subject_teaching: ''
       });
       fetchStaff(selectedSchool);
-      if(profile?.role === 'super-admin') fetchSchools(); // Refresh counts on card
+      if (profile?.role === 'super-admin') fetchSchools(); // Refresh counts on card
 
     } catch (err: any) {
       toast.error(err.message || "Failed");
@@ -153,16 +153,37 @@ export function StaffManagement() {
     }
   };
 
+  // --- UPDATED DELETE FUNCTION (Server-Side) ---
   const processDelete = async () => {
     setIsSaving(true);
-    const { error } = await supabase.from('profiles').delete().eq('id', memberToDelete.id);
-    if (!error) {
-      toast.success("RECORD REMOVED");
+    try {
+      console.log("Deleting User via Edge Function...");
+
+      // Call the Secure Edge Function
+      const { data, error } = await supabase.functions.invoke('delete-user', {
+        body: {
+          target_id: memberToDelete.id
+        }
+      });
+
+      if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(data.error);
+
+      // Success
+      toast.success("USER DELETED PERMANENTLY");
+
+      // Update Lists
       fetchStaff(selectedSchool);
-      if(profile?.role === 'super-admin') fetchSchools(); // Refresh counts
+      if (profile?.role === 'super-admin') fetchSchools();
+
       setShowDeleteConfirm(false);
-    } else { toast.error("DELETION FAILED"); }
-    setIsSaving(false);
+
+    } catch (err: any) {
+      console.error("Delete Error:", err);
+      toast.error("Failed to delete user from Auth");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const togglePermission = async (profileId: string, currentStatus: any, field: string) => {
@@ -201,9 +222,9 @@ export function StaffManagement() {
               <Plus size={16} /> Add Entry
             </button>
             {profile?.role === 'super-admin' && (
-                <button onClick={() => { setSelectedSchool(null); localStorage.removeItem('lastSelectedSchool'); }} className="bg-white text-slate-400 px-5 py-3.5 rounded-xl transition-all hover:text-slate-800 border border-slate-100">
+              <button onClick={() => { setSelectedSchool(null); localStorage.removeItem('lastSelectedSchool'); }} className="bg-white text-slate-400 px-5 py-3.5 rounded-xl transition-all hover:text-slate-800 border border-slate-100">
                 <ChevronRight className="rotate-180" size={18} />
-                </button>
+              </button>
             )}
           </div>
         )}
@@ -214,74 +235,74 @@ export function StaffManagement() {
           /* --- 2. UPDATED CARD DESIGN WITH COUNTS --- */
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {schools.map(school => {
-                // Calculate Counts
-                const adminCount = school.profiles?.filter((p: any) => p.role === 'school-admin').length || 0;
-                const teacherCount = school.profiles?.filter((p: any) => p.role === 'teacher').length || 0;
-                const studentCount = school.profiles?.filter((p: any) => p.role === 'student').length || 0;
+              // Calculate Counts
+              const adminCount = school.profiles?.filter((p: any) => p.role === 'school-admin').length || 0;
+              const teacherCount = school.profiles?.filter((p: any) => p.role === 'teacher').length || 0;
+              const studentCount = school.profiles?.filter((p: any) => p.role === 'student').length || 0;
 
-                return (
-                  <div
-                    key={school.id} onClick={() => fetchStaff(school)}
-                    className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm hover:shadow-lg cursor-pointer transition-all group relative overflow-hidden"
-                  >
-                    {/* Decorative Background Icon */}
-                    <School className="absolute -right-4 -bottom-4 text-slate-50 group-hover:text-blue-50 transition-colors" size={120} strokeWidth={0.5} />
+              return (
+                <div
+                  key={school.id} onClick={() => fetchStaff(school)}
+                  className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm hover:shadow-lg cursor-pointer transition-all group relative overflow-hidden"
+                >
+                  {/* Decorative Background Icon */}
+                  <School className="absolute -right-4 -bottom-4 text-slate-50 group-hover:text-blue-50 transition-colors" size={120} strokeWidth={0.5} />
 
-                    <div className="relative z-10">
-                        <div className="flex justify-between items-start mb-4">
-                            <div className="w-12 h-12 bg-blue-50 text-blue-500 rounded-2xl flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-all shadow-sm">
-                                <Building2 size={24} />
-                            </div>
-                            <div className="bg-slate-50 px-3 py-1 rounded-full border border-slate-100">
-                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{school.location}</span>
-                            </div>
-                        </div>
-                        
-                        <h3 className="text-xl font-bold text-slate-800 tracking-tight mb-6 pr-2 line-clamp-1">{school.name}</h3>
-                        
-                        {/* COUNTS SECTION */}
-                        <div className="grid grid-cols-2 gap-3">
-                            <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 flex flex-col items-center justify-center group-hover:border-blue-100 transition-colors">
-                                <div className="flex items-center gap-1.5 mb-1 text-slate-400">
-                                    <Crown size={12} />
-                                    <span className="text-[9px] font-bold uppercase tracking-wider">Admins</span>
-                                </div>
-                                <span className="text-lg font-black text-slate-700">{adminCount}</span>
-                            </div>
+                  <div className="relative z-10">
+                    <div className="flex justify-between items-start mb-4">
+                      <div className="w-12 h-12 bg-blue-50 text-blue-500 rounded-2xl flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-all shadow-sm">
+                        <Building2 size={24} />
+                      </div>
+                      <div className="bg-slate-50 px-3 py-1 rounded-full border border-slate-100">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{school.location}</span>
+                      </div>
+                    </div>
 
-                            <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 flex flex-col items-center justify-center group-hover:border-blue-100 transition-colors">
-                                <div className="flex items-center gap-1.5 mb-1 text-slate-400">
-                                    <Users size={12} />
-                                    <span className="text-[9px] font-bold uppercase tracking-wider">Teachers</span>
-                                </div>
-                                <span className="text-lg font-black text-slate-700">{teacherCount}</span>
-                            </div>
+                    <h3 className="text-xl font-bold text-slate-800 tracking-tight mb-6 pr-2 line-clamp-1">{school.name}</h3>
+
+                    {/* COUNTS SECTION */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 flex flex-col items-center justify-center group-hover:border-blue-100 transition-colors">
+                        <div className="flex items-center gap-1.5 mb-1 text-slate-400">
+                          <Crown size={12} />
+                          <span className="text-[9px] font-bold uppercase tracking-wider">Admins</span>
                         </div>
-                        
-                        {/* Student Count Mini Badge */}
-                        <div className="mt-4 pt-4 border-t border-slate-50 flex items-center justify-between text-slate-400">
-                             <span className="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
-                                <GraduationCap size={14} /> Students
-                             </span>
-                             <span className="text-xs font-bold text-slate-600">{studentCount}</span>
+                        <span className="text-lg font-black text-slate-700">{adminCount}</span>
+                      </div>
+
+                      <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 flex flex-col items-center justify-center group-hover:border-blue-100 transition-colors">
+                        <div className="flex items-center gap-1.5 mb-1 text-slate-400">
+                          <Users size={12} />
+                          <span className="text-[9px] font-bold uppercase tracking-wider">Teachers</span>
                         </div>
+                        <span className="text-lg font-black text-slate-700">{teacherCount}</span>
+                      </div>
+                    </div>
+
+                    {/* Student Count Mini Badge */}
+                    <div className="mt-4 pt-4 border-t border-slate-50 flex items-center justify-between text-slate-400">
+                      <span className="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
+                        <GraduationCap size={14} /> Students
+                      </span>
+                      <span className="text-xs font-bold text-slate-600">{studentCount}</span>
                     </div>
                   </div>
-                );
+                </div>
+              );
             })}
           </div>
         ) : (
           <div className="space-y-16">
-             {loading ? (
-                <div className="flex justify-center py-20"><Loader2 className="animate-spin text-slate-300" size={40} /></div>
-             ) : (
-                <>
-                    <DirectorySection title="Administrators" icon={<Crown size={16} />} list={filteredStaff.filter(u => u.role === 'school-admin')} accent="border-blue-100" onDelete={(m: any) => { setMemberToDelete(m); setShowDeleteConfirm(true); }} />
-                    <DirectorySection title="Teaching Faculty" icon={<Users size={16} />} list={filteredStaff.filter(u => u.role === 'teacher')} accent="border-slate-100" onDelete={(m: any) => { setMemberToDelete(m); setShowDeleteConfirm(true); }} onToggle={togglePermission} />
-                    <DirectorySection title="Students" icon={<GraduationCap size={16} />} list={filteredStaff.filter(u => u.role === 'student')} accent="border-slate-100" onDelete={(m: any) => { setMemberToDelete(m); setShowDeleteConfirm(true); }} />
-                    <DirectorySection title="Parents" icon={<User size={16} />} list={filteredStaff.filter(u => u.role === 'parent')} accent="border-slate-100" onDelete={(m: any) => { setMemberToDelete(m); setShowDeleteConfirm(true); }} />
-                </>
-             )}
+            {loading ? (
+              <div className="flex justify-center py-20"><Loader2 className="animate-spin text-slate-300" size={40} /></div>
+            ) : (
+              <>
+                <DirectorySection title="Administrators" icon={<Crown size={16} />} list={filteredStaff.filter(u => u.role === 'school-admin')} accent="border-blue-100" onDelete={(m: any) => { setMemberToDelete(m); setShowDeleteConfirm(true); }} />
+                <DirectorySection title="Teaching Faculty" icon={<Users size={16} />} list={filteredStaff.filter(u => u.role === 'teacher')} accent="border-slate-100" onDelete={(m: any) => { setMemberToDelete(m); setShowDeleteConfirm(true); }} onToggle={togglePermission} />
+                <DirectorySection title="Students" icon={<GraduationCap size={16} />} list={filteredStaff.filter(u => u.role === 'student')} accent="border-slate-100" onDelete={(m: any) => { setMemberToDelete(m); setShowDeleteConfirm(true); }} />
+                <DirectorySection title="Parents" icon={<User size={16} />} list={filteredStaff.filter(u => u.role === 'parent')} accent="border-slate-100" onDelete={(m: any) => { setMemberToDelete(m); setShowDeleteConfirm(true); }} />
+              </>
+            )}
           </div>
         )}
       </AnimatePresence>

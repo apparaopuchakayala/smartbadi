@@ -7,7 +7,7 @@ import { SchoolSelector } from './pages/schoolselector/schoolselector';
 import { ManageSchools } from './pages/admin/manageschools';
 import { Sidebar } from './components/sidebar';
 import { StaffManagement } from './pages/admin/StaffManagement';
-import { Menu } from 'lucide-react'; // Floating button కోసం
+import { Menu } from 'lucide-react';
 
 export default function App() {
   return (
@@ -26,7 +26,7 @@ function AppContent() {
     return saved ? JSON.parse(saved) : null;
   });
 
-  // డెస్క్‌టాప్ సైడ్‌బార్ స్టేట్
+  // డెస్క్‌టాప్ సైడ్‌బార్ స్టేట్ - డిఫాల్ట్‌గా true ఉండాలి
   const [isSidebarVisible, setIsSidebarVisible] = useState(true);
 
   const navigateTo = (pageId: string) => {
@@ -68,13 +68,20 @@ function AppContent() {
   const isAuthPage = ['landing', 'login', 'forgot-password'].includes(currentPage);
 
   return (
-    <div className={`min-h-screen w-full ${isAuthPage ? 'bg-gray-100' : 'bg-[#f0f9ff] flex flex-col md:flex-row h-screen overflow-hidden'}`}>
+    <div className={`min-h-screen w-full flex ${isAuthPage ? 'items-center justify-center bg-gray-100' : 'bg-[#f0f9ff] flex-row h-screen overflow-hidden'}`}>
       <Toaster position="bottom-center" />
       
       {isAuthPage ? (
-        <div className="flex items-center justify-center w-full">
+        <div className="w-full flex items-center justify-center p-4">
           {currentPage === 'landing' && <SchoolSelector onSchoolSelect={handleSchoolSelection} />}
-          {currentPage === 'login' && <LoginPage schoolContext={selectedSchool} onBackToLanding={() => navigateTo('landing')} onLoginSuccess={() => {}} onSwitchToForgotPassword={() => navigateTo('forgot-password')} />}
+          {currentPage === 'login' && (
+            <LoginPage 
+              schoolContext={selectedSchool} 
+              onBackToLanding={() => navigateTo('landing')} 
+              onLoginSuccess={() => {}} 
+              onSwitchToForgotPassword={() => navigateTo('forgot-password')} 
+            />
+          )}
           {currentPage === 'forgot-password' && <ForgotPasswordPage onSwitchToLogin={() => navigateTo('login')} />}
         </div>
       ) : (
@@ -88,8 +95,8 @@ function AppContent() {
               toggleSidebar={() => setIsSidebarVisible(!isSidebarVisible)}
             />
             
-            <main className={`flex-1 overflow-y-auto p-4 md:p-8 bg-[#f8fafc] transition-all duration-300 relative`}>
-              {/* Floating Menu Button: సైడ్‌బార్ క్లోజ్ అయినప్పుడు మాత్రమే కనిపిస్తుంది */}
+            <main className="flex-1 overflow-y-auto bg-[#f8fafc] transition-all duration-300 relative">
+              {/* సైడ్‌బార్ క్లోజ్ అయినప్పుడు కనిపించే ఫ్లోటింగ్ బటన్ */}
               {!isSidebarVisible && (
                 <button 
                   onClick={() => setIsSidebarVisible(true)}
@@ -99,13 +106,17 @@ function AppContent() {
                 </button>
               )}
 
-              <div className="max-w-7xl mx-auto">
+              <div className="max-w-7xl mx-auto p-4 md:p-8">
                 {currentPage === 'manage-schools' && profile.role === 'super-admin' && <ManageSchools />}
                 {currentPage === 'staff-mgmt' && (profile.role === 'super-admin' || profile.role === 'school-admin') && <StaffManagement />}
                 {currentPage === 'dashboard' && (
                   <div className="bg-white p-10 rounded-[40px] shadow-sm border border-slate-100">
-                    <h1 className="text-3xl font-light text-slate-800">Welcome back, <span className="font-bold text-blue-600">{profile.full_name}</span></h1>
-                    <p className="text-slate-400 text-[10px] font-bold uppercase tracking-[4px] mt-2">{profile.role} • {profile.schools?.name}</p>
+                    <h1 className="text-3xl font-light text-slate-800">
+                      Welcome back, <span className="font-bold text-blue-600">{profile.full_name}</span>
+                    </h1>
+                    <p className="text-slate-400 text-[10px] font-bold uppercase tracking-[4px] mt-2">
+                      {profile.role} • {profile.schools?.name}
+                    </p>
                   </div>
                 )}
                 {!['manage-schools', 'staff-mgmt', 'dashboard'].includes(currentPage) && (

@@ -1,4 +1,3 @@
-// supabase/functions/secure-login/index.ts
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 
@@ -25,10 +24,10 @@ serve(async (req) => {
 
     if (authError) throw authError;
 
-    // 2. Fetch Profile using Master Key
+    // 2. Fetch Profile including full_name
     const { data: profile, error: pError } = await supabaseAdmin
       .from('profiles')
-      .select('school_id, role')
+      .select('school_id, role, full_name')
       .eq('id', authData.user.id)
       .single();
 
@@ -38,11 +37,19 @@ serve(async (req) => {
     }
 
     // 3. Strict Institution Rule
+    // ఇక్కడ మెసేజ్ లో పేరు డైనమిక్ గా రావడానికి Template Literals వాడాలి
     if (profile.role !== 'super-admin' && profile.school_id !== school_id) {
       await supabaseAdmin.auth.admin.signOut(authData.session.access_token);
-      return new Response(JSON.stringify({ error: "Access Denied: Wrong Institution" }), { 
-        status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      });
+      
+      return new Response(
+        JSON.stringify({ 
+          error: `Oops! Dear ${profile.full_name}, you are not from this institution.` 
+        }), 
+        { 
+          status: 403, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
     }
 
     return new Response(JSON.stringify({ session: authData.session, profile }), { 

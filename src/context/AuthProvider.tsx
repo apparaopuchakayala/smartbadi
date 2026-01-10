@@ -37,7 +37,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (error) throw error;
       setProfile(data);
     } catch (err: any) {
-      console.error("Profile Error:", err.message);
+      console.er  ror("Profile Error:", err.message);
       setProfile(null);
     } finally {
       isFetching.current = false;

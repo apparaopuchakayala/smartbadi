@@ -58,13 +58,27 @@ export function StaffManagement() {
   }, [profile]);
 
   const fetchSchools = async () => {
-    const { data } = await supabase
-      .from('schools')
-      .select('*, profiles(role)')
-      .order('name');
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('schools')
+        .select(`
+          *,
+          profiles(role , school_id)
+        `)
+        .order('name');
 
-    if (data) setSchools(data);
-    if (!localStorage.getItem('lastSelectedSchool')) setLoading(false);
+      if (error) throw error;
+
+      if (data) {
+        setSchools(data);
+      }
+    } catch (err: any) {
+      console.error("Fetch Error:", err.message);
+      toast.error("Failed to sync institution records");
+    } finally {
+      if (!localStorage.getItem('lastSelectedSchool')) setLoading(false);
+    }
   };
 
   const fetchStaff = async (school: any) => {
@@ -77,9 +91,8 @@ export function StaffManagement() {
     const { data } = await supabase
       .from('profiles')
       .select('*')
-      .eq('school_id', school.id) 
+      .eq('school_id', school.id)
       .neq('role', 'super-admin');
-
     setStaff(data || []);
     setLoading(false);
   };
@@ -345,11 +358,11 @@ export function StaffManagement() {
               <div className="w-16 h-16 bg-red-50 text-red-500 rounded-2xl flex items-center justify-center mx-auto mb-6"><ShieldAlert size={32} /></div>
               <h2 className="text-xl font-bold text-slate-800 uppercase tracking-tight mb-2">Delete Record</h2>
               <p className="text-slate-400 text-sm font-medium mb-8">This action will remove {memberToDelete?.full_name} permanently.</p>
-              
+
               <div className="flex gap-4">
                 {/* DELETE BUTTON: Added Loading State & Disabled Check */}
-                <button 
-                  onClick={processDelete} 
+                <button
+                  onClick={processDelete}
                   disabled={isSaving}
                   className="flex-1 py-4 bg-red-500 text-white rounded-xl font-bold uppercase text-[10px] tracking-widest shadow-lg shadow-red-100 hover:bg-red-600 transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
                 >
@@ -362,8 +375,8 @@ export function StaffManagement() {
                 </button>
 
                 {/* CANCEL BUTTON: Disabled during saving */}
-                <button 
-                  onClick={() => setShowDeleteConfirm(false)} 
+                <button
+                  onClick={() => setShowDeleteConfirm(false)}
                   disabled={isSaving}
                   className="flex-1 py-4 bg-slate-50 text-slate-400 rounded-xl font-bold uppercase text-[10px] tracking-widest hover:bg-slate-100 transition-all disabled:opacity-50"
                 >

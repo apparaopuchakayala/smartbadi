@@ -77,7 +77,7 @@ export function StaffManagement() {
     const { data } = await supabase
       .from('profiles')
       .select('*')
-      .eq('school_id', school.id)
+      .eq('school_id', school.id) 
       .neq('role', 'super-admin');
 
     setStaff(data || []);

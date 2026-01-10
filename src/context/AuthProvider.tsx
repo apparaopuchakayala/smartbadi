@@ -1,6 +1,8 @@
+// context/AuthProvider.tsx
 import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { supabase } from '../services/supabaseClient';
 import { Session, User } from '@supabase/supabase-js';
+import toast from 'react-hot-toast';
 
 interface AuthContextType {
   session: Session | null;
@@ -18,47 +20,57 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   
-  // PREVENT DOUBLE FETCHING
   const isFetching = useRef(false);
+  const lastUserId = useRef<string | null>(null);
+
+  const fetchProfile = async (currentUser: User) => {
+    if (isFetching.current) return;
+    isFetching.current = true;
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*, schools(name, location)')
+        .eq('id', currentUser.id)
+        .limit(1)
+        .maybeSingle();
+
+      if (error) throw error;
+      setProfile(data);
+    } catch (err: any) {
+      console.error("Profile Error:", err.message);
+      setProfile(null);
+    } finally {
+      isFetching.current = false;
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     let mounted = true;
 
-    // 1. FAILSAFE: If app is stuck loading for 3s, Force Open.
-    const failsafe = setTimeout(() => {
-      if (mounted && loading) {
-        // console.warn("Global Auth Timeout - Forcing Load.");
+    // Initial session fetch
+    supabase.auth.getSession().then(({ data: { session: initSession } }) => {
+      if (mounted && initSession) {
+        setSession(initSession);
+        setUser(initSession.user);
+        lastUserId.current = initSession.user.id;
+        fetchProfile(initSession.user);
+      } else {
         setLoading(false);
       }
-    }, 0);
+    });
 
-    // 2. INITIAL CHECK
-    const init = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (mounted && session) {
-        setSession(session);
-        setUser(session.user);
-        // Only fetch if not already fetching
-        if (!isFetching.current) await fetchProfile(session.user);
-      } else if (mounted && !session) {
-        // No session, stop loading
-        setLoading(false);
-      }
-    };
-
-    init();
-
-    // 3. LISTENER
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (mounted) {
-        setSession(session);
-        setUser(session?.user ?? null);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, currentSession) => {
+      if (!mounted) return;
+      
+      // Performance guard: Only fetch if user changed
+      if (currentSession?.user?.id !== lastUserId.current) {
+        setSession(currentSession);
+        setUser(currentSession?.user ?? null);
+        lastUserId.current = currentSession?.user?.id ?? null;
         
-        if (session?.user) {
-          // Only fetch if we don't have a profile yet and aren't fetching
-          if (!isFetching.current && !profile) {
-             await fetchProfile(session.user);
-          }
+        if (currentSession?.user) {
+          fetchProfile(currentSession.user);
         } else {
           setProfile(null);
           setLoading(false);
@@ -66,76 +78,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     });
 
-    return () => {
-      mounted = false;
-      clearTimeout(failsafe);
-      subscription.unsubscribe();
-    };
+    return () => { mounted = false; subscription.unsubscribe(); };
   }, []);
 
-  const fetchProfile = async (currentUser: User) => {
-    // LOCK: Prevent multiple calls
-    if (isFetching.current) return;
-    isFetching.current = true;
-    
-    try {
-      // console.log("Fetching Profile...");
-      let finalProfile = null;
-
-      // 1. TIMEOUT PROMISE (1.5s is enough)
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error("DB Timeout")), 1500)
-      );
-
-      // 2. DB REQUEST
-      const dbPromise = supabase
-        .from('profiles')
-        .select('*, schools(name, location)') 
-        .eq('id', currentUser.id)
-        .single();
-
-      // 3. RACE
-      const { data, error } = await Promise.race([dbPromise, timeoutPromise]) as any;
-
-      finalProfile = data;
-
-      // Fallback Logic
-      if (error || !finalProfile) {
-         // Try simple fetch
-         const basic = await supabase.from('profiles').select('*').eq('id', currentUser.id).single();
-         finalProfile = basic.data;
-      }
-
-      if (finalProfile) {
-        setProfile(finalProfile);
-      } else {
-        throw new Error("Profile missing");
-      }
-
-    } catch (err) {
-      // console.error("Critical Profile Error - Using Recovery");
-      
-      // EMERGENCY RECOVERY
-      setProfile({
-        id: currentUser.id,
-        role: 'super-admin',
-        full_name: 'Recovery Admin',
-        email: currentUser.email,
-        school_id: null,
-        schools: null
-      });
-
-    } finally {
-      // UNLOCK & OPEN APP
-      isFetching.current = false;
-      setLoading(false);
-    }
-  };
-
   const signOut = async () => {
+    setLoading(true);
     await supabase.auth.signOut();
-    localStorage.clear(); 
-    window.location.href = '/'; 
+    localStorage.clear();
+    setProfile(null);
+    setUser(null);
+    setSession(null);
+    lastUserId.current = null;
+    window.location.href = '/';
   };
 
   return (
@@ -145,8 +99,4 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function useAuth() {
-  const context = useContext(AuthContext);
-  if (context === undefined) throw new Error('useAuth must be used within an AuthProvider');
-  return context;
-}
+export const useAuth = () => useContext(AuthContext)!;

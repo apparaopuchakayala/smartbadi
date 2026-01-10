@@ -7,6 +7,7 @@ import { SchoolSelector } from './pages/schoolselector/schoolselector';
 import { ManageSchools } from './pages/admin/manageschools';
 import { Sidebar } from './components/sidebar';
 import { StaffManagement } from './pages/admin/StaffManagement';
+import { Menu } from 'lucide-react'; // Floating button కోసం
 
 export default function App() {
   return (
@@ -19,12 +20,14 @@ export default function App() {
 function AppContent() {
   const { session, profile, loading, signOut } = useAuth();
   
-  // Persistence: రిఫ్రెష్ చేసినా పాత పేజీ పోకుండా ఉంటుంది
   const [currentPage, setCurrentPage] = useState<string>(() => localStorage.getItem('lastActivePage') || 'landing');
   const [selectedSchool, setSelectedSchool] = useState<any>(() => {
     const saved = localStorage.getItem('selectedSchoolContext');
     return saved ? JSON.parse(saved) : null;
   });
+
+  // డెస్క్‌టాప్ సైడ్‌బార్ స్టేట్
+  const [isSidebarVisible, setIsSidebarVisible] = useState(true);
 
   const navigateTo = (pageId: string) => {
     setCurrentPage(pageId);
@@ -40,20 +43,17 @@ function AppContent() {
   useEffect(() => {
     if (!loading) {
       if (session && profile) {
-        // లాగిన్ అయి ఉంటే నేరుగా డాష్‌బోర్డ్ కి వెళ్లాలి
         if (['landing', 'login', 'forgot-password'].includes(currentPage)) {
           navigateTo(profile.role === 'super-admin' ? 'manage-schools' : 'dashboard');
         }
       } else if (!session) {
-        // సెషన్ లేకపోతే ఆథెంటికేషన్ పేజీలకే పరిమితం
         if (!['landing', 'login', 'forgot-password'].includes(currentPage)) {
           navigateTo('landing');
         }
       }
     }
-  }, [session, profile, loading]);
+  }, [session, profile, loading, currentPage]);
 
-  // Loading State: సెషన్ రికవరీ అయ్యే వరకు వేచి ఉండటం
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#f0f9ff]">
@@ -65,54 +65,58 @@ function AppContent() {
     );
   }
 
-  // Sync Error Logic: సెషన్ ఉండి ప్రొఫైల్ లేకపోతేనే ఇది రావాలి
-  // if (session && !profile && !loading) {
-  //   return (
-  //     <div className="min-h-screen flex items-center justify-center bg-[#f0f9ff] p-4">
-  //       <div className="bg-white p-10 rounded-[40px] shadow-2xl text-center max-w-sm border border-red-100">
-  //         <div className="w-20 h-20 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-6 text-2xl">⚠️</div>
-  //         <h2 className="text-xl font-black text-slate-800 mb-2 uppercase">Sync Error</h2>
-  //         <p className="text-slate-500 text-xs font-bold leading-relaxed mb-8 uppercase tracking-wider">
-  //           Profile record not found. Please contact system admin to link your credentials.
-  //         </p>
-  //         <button onClick={signOut} className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-lg active:scale-95 transition-all">
-  //           Retry Login
-  //         </button>
-  //       </div>
-  //     </div>
-  //   );
-  // }
-
   const isAuthPage = ['landing', 'login', 'forgot-password'].includes(currentPage);
 
   return (
-    <div className={`min-h-screen w-full ${isAuthPage ? 'bg-gray-100 flex items-center justify-center' : 'bg-[#f0f9ff] flex flex-col md:flex-row h-screen overflow-hidden'}`}>
+    <div className={`min-h-screen w-full ${isAuthPage ? 'bg-gray-100' : 'bg-[#f0f9ff] flex flex-col md:flex-row h-screen overflow-hidden'}`}>
       <Toaster position="bottom-center" />
-      {currentPage === 'landing' && <SchoolSelector onSchoolSelect={handleSchoolSelection} />}
-      {currentPage === 'login' && <LoginPage schoolContext={selectedSchool} onBackToLanding={() => navigateTo('landing')} onLoginSuccess={() => {}} onSwitchToForgotPassword={() => navigateTo('forgot-password')} />}
-      {currentPage === 'forgot-password' && <ForgotPasswordPage onSwitchToLogin={() => navigateTo('login')} />}
+      
+      {isAuthPage ? (
+        <div className="flex items-center justify-center w-full">
+          {currentPage === 'landing' && <SchoolSelector onSchoolSelect={handleSchoolSelection} />}
+          {currentPage === 'login' && <LoginPage schoolContext={selectedSchool} onBackToLanding={() => navigateTo('landing')} onLoginSuccess={() => {}} onSwitchToForgotPassword={() => navigateTo('forgot-password')} />}
+          {currentPage === 'forgot-password' && <ForgotPasswordPage onSwitchToLogin={() => navigateTo('login')} />}
+        </div>
+      ) : (
+        session && profile && (
+          <>
+            <Sidebar 
+              activePage={currentPage} 
+              userRole={profile.role} 
+              onNavigate={navigateTo} 
+              isDesktopVisible={isSidebarVisible}
+              toggleSidebar={() => setIsSidebarVisible(!isSidebarVisible)}
+            />
+            
+            <main className={`flex-1 overflow-y-auto p-4 md:p-8 bg-[#f8fafc] transition-all duration-300 relative`}>
+              {/* Floating Menu Button: సైడ్‌బార్ క్లోజ్ అయినప్పుడు మాత్రమే కనిపిస్తుంది */}
+              {!isSidebarVisible && (
+                <button 
+                  onClick={() => setIsSidebarVisible(true)}
+                  className="hidden md:flex fixed top-6 left-6 z-50 p-3 bg-white shadow-xl rounded-2xl text-blue-600 border border-blue-50 hover:scale-110 transition-all"
+                >
+                  <Menu size={20} />
+                </button>
+              )}
 
-      {!isAuthPage && session && profile && (
-        <>
-          <Sidebar activePage={currentPage} userRole={profile.role} onNavigate={navigateTo} />
-          <main className="flex-1 overflow-y-auto p-4 md:p-8 bg-[#f8fafc]">
-            <div className="max-w-7xl mx-auto">
-              {currentPage === 'manage-schools' && profile.role === 'super-admin' && <ManageSchools />}
-              {currentPage === 'staff-mgmt' && (profile.role === 'super-admin' || profile.role === 'school-admin') && <StaffManagement />}
-              {currentPage === 'dashboard' && (
-                <div className="bg-white p-10 rounded-[40px] shadow-sm border border-slate-100">
-                  <h1 className="text-3xl font-light text-slate-800">Welcome back, <span className="font-bold text-blue-600">{profile.full_name}</span></h1>
-                  <p className="text-slate-400 text-[10px] font-bold uppercase tracking-[4px] mt-2">{profile.role} • {profile.schools?.name}</p>
-                </div>
-              )}
-              {!['manage-schools', 'staff-mgmt', 'dashboard'].includes(currentPage) && (
-                <div className="flex items-center justify-center h-[60vh] text-slate-300 font-bold uppercase tracking-widest text-xs border-4 border-dashed rounded-[48px] border-slate-100">
-                  Module "{currentPage}" is under construction
-                </div>
-              )}
-            </div>
-          </main>
-        </>
+              <div className="max-w-7xl mx-auto">
+                {currentPage === 'manage-schools' && profile.role === 'super-admin' && <ManageSchools />}
+                {currentPage === 'staff-mgmt' && (profile.role === 'super-admin' || profile.role === 'school-admin') && <StaffManagement />}
+                {currentPage === 'dashboard' && (
+                  <div className="bg-white p-10 rounded-[40px] shadow-sm border border-slate-100">
+                    <h1 className="text-3xl font-light text-slate-800">Welcome back, <span className="font-bold text-blue-600">{profile.full_name}</span></h1>
+                    <p className="text-slate-400 text-[10px] font-bold uppercase tracking-[4px] mt-2">{profile.role} • {profile.schools?.name}</p>
+                  </div>
+                )}
+                {!['manage-schools', 'staff-mgmt', 'dashboard'].includes(currentPage) && (
+                  <div className="flex items-center justify-center h-[60vh] text-slate-300 font-bold uppercase tracking-widest text-xs border-4 border-dashed rounded-[48px] border-slate-100">
+                    Module "{currentPage}" is under construction
+                  </div>
+                )}
+              </div>
+            </main>
+          </>
+        )
       )}
     </div>
   );

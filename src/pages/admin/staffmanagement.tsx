@@ -118,43 +118,57 @@ export function StaffManagement() {
 
   const handleAddUser = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSaving(true);
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error("Session expired");
+    const targetSchoolId = profile.role === 'super-admin'
+      ? selectedSchool?.id
+      : profile.school_id;
 
+    if (!targetSchoolId) {
+      toast.error("Security Context Missing: Institution ID not identified.");
+      return;
+    }
+
+    setIsSaving(true);
+    const loadingToast = toast.loading("Verifying Identity & Synchronizing...");
+
+    try {
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      if (!currentSession) throw new Error("Authentication expired. Re-login required.");
+
+      // 2. Edge Function కాల్
       const { data, error } = await supabase.functions.invoke('create-user', {
         body: {
-          email: formData.email,
+          email: formData.email.trim().toLowerCase(),
           password: formData.encrypted_password,
           profileData: {
-            full_name: formData.full_name,
+            full_name: formData.full_name.trim(),
             role: formData.role,
-            school_id: selectedSchool.id,
-            employee_id: formData.employee_id,
-            mobile_number: formData.mobile_number,
+            school_id: targetSchoolId, // Security: Scoped to current context
+            employee_id: formData.employee_id.trim() || null,
+            mobile_number: formData.mobile_number.trim() || null,
             dob: formData.dob || null,
-            subject_teaching: formData.subject_teaching,
+            subject_teaching: formData.subject_teaching.trim() || 'General',
             encrypted_password: formData.encrypted_password,
             is_active: true
           }
         }
       });
 
-      if (error) throw new Error(error.message);
-      if (data?.error) throw new Error(data.error);
+      if (error || data?.error) throw new Error(data?.error || error.message);
 
-      toast.success("STAFF MEMBER CREATED");
+      toast.success("STAFF RECORD REGISTERED SUCCESSFULLY", { id: loadingToast });
       setShowAddModal(false);
+
+      // 3. Atomic Refresh
       setFormData({
         full_name: '', email: '', encrypted_password: '', role: 'teacher',
         employee_id: '', mobile_number: '', dob: '', subject_teaching: ''
       });
-      fetchStaff(selectedSchool);
-      if (profile?.role === 'super-admin') fetchSchools();
+
+      await fetchStaff(selectedSchool || { id: targetSchoolId });
+      if (profile?.role === 'super-admin') await fetchSchools();
 
     } catch (err: any) {
-      toast.error(err.message || "Failed");
+      toast.error(err.message || "Registry Failure", { id: loadingToast });
     } finally {
       setIsSaving(false);
     }

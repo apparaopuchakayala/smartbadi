@@ -45,10 +45,16 @@ export function StaffAndAccess() {
             .from('profiles')
             .select('*')
             .eq('school_id', profile.school_id)
-            .neq('role', 'super-admin');
+            // .neq('role', 'super-admin');
+            console.log(data)
 
-        if (error) toast.error("Sync failed");
-        else setStaff(data || []);
+        if (error) {
+            console.error("Database Fetch Error:", error.message);
+            toast.error("Access Denied: Check RLS Policies");
+        } else {
+            // console.log("Fetched Data:", data); 
+            setStaff(data || []);
+        }
         setLoading(false);
     };
 
@@ -134,7 +140,7 @@ export function StaffAndAccess() {
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                 <div>
                     <h1 className="text-4xl font-light text-slate-800 tracking-tight uppercase">Staff & Access</h1>
-                    <p className="text-slate-400 font-medium text-[10px] tracking-[3px] uppercase mt-1">Enterprise Directory Management</p>
+                    <p className="text-slate-400 font-medium text-[10px] tracking-[3px] uppercase mt-1">school staff Management</p>
                 </div>
 
                 <div className="flex flex-wrap gap-4 w-full md:w-auto">
@@ -337,7 +343,6 @@ function FormInput({ label, value, onChange, type = "text", required }: any) {
                 required={required}
                 value={value}
                 onChange={e => onChange(e.target.value)}
-                // స్పష్టమైన బోర్డర్స్ మరియు విజిబిలిటీ కోసం అప్‌డేట్ చేసిన క్లాసులు
                 className="w-full px-5 py-4 bg-white border border-slate-300 rounded-2xl outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-50 transition-all font-bold text-slate-700 shadow-sm"
             />
         </div>

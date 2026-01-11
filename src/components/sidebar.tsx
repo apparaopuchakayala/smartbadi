@@ -30,13 +30,13 @@ export function Sidebar({ activePage, onNavigate, userRole, isDesktopVisible, to
       case 'super-admin':
         return [
           { id: 'manage-schools', label: 'Global Schools', icon: Building2 },
-          { id: 'staff-mgmt', label: 'Global Staff', icon: Users },
+          { id: 'global-staff', label: 'Global Staff', icon: Users },
           { id: 'settings', label: 'System Settings', icon: ShieldCheck },
         ];
       case 'school-admin':
         return [
           { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-          { id: 'staff-mgmt', label: 'Staff & Access', icon: ShieldCheck },
+          { id: 'school-staff', label: 'Staff & Access', icon: ShieldCheck },
           { id: 'student-mgmt', label: 'Student Hub', icon: GraduationCap },
           { id: 'class-mapping', label: 'Class Mapping', icon: CalendarRange },
           { id: 'assignments', label: 'Assignments', icon: BookOpen },

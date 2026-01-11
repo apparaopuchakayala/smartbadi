@@ -6,7 +6,8 @@ import { ForgotPasswordPage } from './pages/Forgotpassword/forgotpassword';
 import { SchoolSelector } from './pages/schoolselector/schoolselector';
 import { ManageSchools } from './pages/admin/manageschools';
 import { Sidebar } from './components/sidebar';
-import { StaffAndAccess } from './pages/school-admin/StaffAndAccess'; 
+import { StaffAndAccess } from './pages/school-admin/StaffAndAccess';
+import { StaffManagement } from './pages/admin/staffmanagement';
 import { Menu } from 'lucide-react';
 import './styles/global.css';
 
@@ -20,10 +21,10 @@ export default function App() {
 
 function AppContent() {
   const { session, profile, loading } = useAuth();
-  
+
   // రిఫ్రెష్ చేసినా పాత పేజీ పోకుండా ఉండటానికి localStorage persistence
   const [currentPage, setCurrentPage] = useState<string>(() => localStorage.getItem('lastActivePage') || 'landing');
-  
+
   const [selectedSchool, setSelectedSchool] = useState<any>(() => {
     const saved = localStorage.getItem('selectedSchoolContext');
     return saved ? JSON.parse(saved) : null;
@@ -77,16 +78,16 @@ function AppContent() {
   return (
     <div className={`min-h-screen w-full flex ${isAuthPage ? 'items-center justify-center bg-gray-100' : 'bg-[#f0f9ff] flex-row h-screen overflow-hidden'}`}>
       <Toaster position="bottom-center" />
-      
+
       {isAuthPage ? (
         <div className="w-full flex items-center justify-center p-4">
           {currentPage === 'landing' && <SchoolSelector onSchoolSelect={handleSchoolSelection} />}
           {currentPage === 'login' && (
-            <LoginPage 
-              schoolContext={selectedSchool} 
-              onBackToLanding={() => navigateTo('landing')} 
-              onLoginSuccess={() => {}} 
-              onSwitchToForgotPassword={() => navigateTo('forgot-password')} 
+            <LoginPage
+              schoolContext={selectedSchool}
+              onBackToLanding={() => navigateTo('landing')}
+              onLoginSuccess={() => { }}
+              onSwitchToForgotPassword={() => navigateTo('forgot-password')}
             />
           )}
           {currentPage === 'forgot-password' && <ForgotPasswordPage onSwitchToLogin={() => navigateTo('login')} />}
@@ -94,18 +95,18 @@ function AppContent() {
       ) : (
         session && profile && (
           <>
-            <Sidebar 
-              activePage={currentPage} 
-              userRole={profile.role} 
-              onNavigate={navigateTo} 
+            <Sidebar
+              activePage={currentPage}
+              userRole={profile.role}
+              onNavigate={navigateTo}
               isDesktopVisible={isSidebarVisible}
               toggleSidebar={() => setIsSidebarVisible(!isSidebarVisible)}
             />
-            
+
             <main className="flex-1 overflow-y-auto bg-[#f8fafc] transition-all duration-300 relative">
               {/* డెస్క్‌టాప్‌లో సైడ్‌బార్ దాక్కున్నప్పుడు కనిపించే టోగుల్ బటన్ */}
               {!isSidebarVisible && (
-                <button 
+                <button
                   onClick={() => setIsSidebarVisible(true)}
                   className="hidden md:flex fixed top-6 left-6 z-50 p-3 bg-white shadow-xl rounded-2xl text-blue-600 border border-blue-50 hover:scale-110 transition-all"
                 >
@@ -115,10 +116,11 @@ function AppContent() {
 
               <div className="max-w-7xl mx-auto p-4 md:p-8">
                 {/* 1. Global Admin Pages */}
-                {currentPage === 'manage-schools' && profile.role === 'super-admin' && <ManageSchools />}
+                {currentPage === 'manage-schools' && profile.role === 'super-admin' && <ManageSchools /> }
+                {currentPage === 'global-staff' && profile.role === 'super-admin' && <StaffManagement /> }
 
                 {/* 2. School Admin & Staff Pages */}
-                {currentPage === 'staff-mgmt' && (profile.role === 'super-admin' || profile.role === 'school-admin') && (
+                {currentPage === 'school-staff' && ( profile.role === 'school-admin') && (
                   <StaffAndAccess />
                 )}
 

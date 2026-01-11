@@ -14,14 +14,12 @@ serve(async (req) => {
 
   try {
     // 2. Initialize Clients
-    // Client A: Verifies the User (Security Check)
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
       { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
     )
 
-    // Client B: Performs Admin Actions (Service Role)
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -33,16 +31,17 @@ serve(async (req) => {
       throw new Error("Unauthorized: Invalid Token")
     }
 
-    // 4. VERIFY ROLE: Is this user a Super Admin?
+    // 4. VERIFY ROLE: Is this user a Super Admin or School Admin?
     const { data: adminProfile } = await supabaseAdmin
       .from('profiles')
       .select('role')
       .eq('id', user.id)
       .single()
 
-    if (adminProfile?.role !== 'super-admin') {
+    // ఇక్కడ school-admin కి కూడా పర్మిషన్ ఇచ్చాము
+    if (adminProfile?.role !== 'super-admin' && adminProfile?.role !== 'school-admin') {
       return new Response(
-        JSON.stringify({ error: "Forbidden: Access Denied" }),
+        JSON.stringify({ error: "Forbidden: Only administrators can create users" }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -55,12 +54,16 @@ serve(async (req) => {
       email: email,
       password: password,
       email_confirm: true,
-      user_metadata: { role: profileData.role, full_name: profileData.full_name }
+      user_metadata: { 
+        role: profileData.role, 
+        full_name: profileData.full_name,
+        school_id: profileData.school_id 
+      }
     })
 
     if (authError) throw authError
 
-    // 7. CREATE PROFILE (Data)
+    // 7. CREATE PROFILE (Data) - అన్ని ఫీల్డ్స్ ఇక్కడ యాడ్ చేశాను
     const { error: profileError } = await supabaseAdmin
       .from('profiles')
       .upsert({
@@ -74,6 +77,11 @@ serve(async (req) => {
         dob: profileData.dob,
         subject_teaching: profileData.subject_teaching,
         encrypted_password: profileData.encrypted_password,
+        // మీ ప్రాజెక్ట్ లోని అదనపు ఫీల్డ్స్
+        gender: profileData.gender,
+        blood_group: profileData.blood_group,
+        date_of_joining: profileData.date_of_joining,
+        address: profileData.address || '',
         is_active: true
       })
 
@@ -84,7 +92,7 @@ serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ message: "User created successfully" }),
+      JSON.stringify({ message: "User and Profile created successfully" }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
 

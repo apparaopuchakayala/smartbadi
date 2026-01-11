@@ -7,54 +7,74 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
-  // 1. Handle CORS
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
-  }
+  // 1. Handle CORS Preflight
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   try {
-    // 2. Initialize Admin Client (The "Master Key")
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) throw new Error("No Authorization Header found");
+
+    const { target_id } = await req.json();
+    if (!target_id) throw new Error("Target ID is required");
+
     const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    )
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    );
 
-    // 3. Get the ID of the user to delete
-    const { target_id } = await req.json()
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_ANON_KEY')!,
+      { global: { headers: { Authorization: authHeader } } }
+    );
 
-    if (!target_id) {
-      throw new Error("Target ID is required")
-    }
+    // 2. VERIFY CALLER IDENTITY
+    // ఈ రిక్వెస్ట్ పంపిన యూజర్ ఎవరో వెరిఫై చేయడం
+    const { data: { user: requester }, error: userError } = await supabaseClient.auth.getUser();
+    if (userError || !requester) throw new Error("Unauthorized: Identity unknown.");
 
-    console.log("Attempting to delete user:", target_id)
-
-    // 4. DELETE FROM PROFILES (Public Table)
-    // We do this first to ensure clean data removal
-    const { error: profileError } = await supabaseAdmin
+    // 3. SECURITY CHECK: Role-Based Authorization
+    // రిక్వెస్టర్ కి 'super-admin' లేదా 'school-admin' రోల్ ఉందో లేదో చెక్ చేయడం
+    const { data: requesterProfile } = await supabaseAdmin
       .from('profiles')
-      .delete()
-      .eq('id', target_id)
+      .select('role, school_id')
+      .eq('id', requester.id)
+      .single();
 
-    if (profileError) {
-      console.error("Profile Delete Error:", profileError)
-      // We continue anyway to ensure Auth is cleaned up
+    if (requesterProfile?.role !== 'super-admin' && requesterProfile?.role !== 'school-admin') {
+      throw new Error("Forbidden: Insufficient permissions to terminate access.");
     }
 
-    // 5. DELETE FROM AUTH (The Critical Step)
-    // Only supabaseAdmin can do this
-    const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(target_id)
+    // 4. CROSS-INSTITUTION PROTECTION
+    // వేరే స్కూల్ యూజర్లని డిలీట్ చేయకుండా అడ్డుకోవడం
+    if (requesterProfile.role !== 'super-admin') {
+      const { data: targetProfile } = await supabaseAdmin
+        .from('profiles')
+        .select('school_id')
+        .eq('id', target_id)
+        .single();
 
-    if (authError) throw authError
+      if (targetProfile?.school_id !== requesterProfile.school_id) {
+        throw new Error("Security Alert: You can only delete users from your own institution.");
+      }
+    }
+
+    console.log(`System: User ${requester.id} is terminating access for ${target_id}`);
+
+    // 5. ATOMIC DELETION
+    // ముందుగా Auth నుండి డిలీట్ చేస్తే, ప్రొఫైల్ టేబుల్ లోని ON DELETE CASCADE వల్ల డేటా మొత్తం క్లీన్ అవుతుంది
+    const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(target_id);
+    if (authError) throw authError;
 
     return new Response(
-      JSON.stringify({ message: "User deleted successfully" }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
-    )
+      JSON.stringify({ message: "Access Terminated & Data Scrubbed Successfully" }),
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
 
-  } catch (error) {
+  } catch (error: any) {
     return new Response(
       JSON.stringify({ error: error.message }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-    )
+      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
   }
 })

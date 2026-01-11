@@ -8,8 +8,10 @@ import { ManageSchools } from './pages/admin/manageschools';
 import { Sidebar } from './components/sidebar';
 import { StaffAndAccess } from './pages/school-admin/StaffAndAccess';
 import { StaffManagement } from './pages/admin/staffmanagement';
+import {StudentHub} from './pages/school-admin/studenthub';
 import { Menu } from 'lucide-react';
 import './styles/global.css';
+
 
 export default function App() {
   return (
@@ -123,6 +125,9 @@ function AppContent() {
                 {currentPage === 'school-staff' && ( profile.role === 'school-admin') && (
                   <StaffAndAccess />
                 )}
+                 {currentPage === 'student-hub' && ( profile.role === 'school-admin') && (
+                  <StudentHub />
+                )}
 
                 {/* 3. Common Dashboard */}
                 {currentPage === 'dashboard' && (
@@ -137,7 +142,7 @@ function AppContent() {
                 )}
 
                 {/* 4. Placeholder for Other Modules (Student Hub, Mapping, etc.) */}
-                {!['manage-schools', 'staff-mgmt', 'dashboard'].includes(currentPage) && (
+                {/* {!['manage-schools', 'staff-mgmt', 'dashboard'].includes(currentPage) && (
                   <div className="flex flex-col items-center justify-center h-[60vh] text-center space-y-4">
                     <div className="p-6 bg-blue-50 rounded-full text-blue-400">
                       <Menu size={48} strokeWidth={1} />
@@ -149,7 +154,7 @@ function AppContent() {
                       </p>
                     </div>
                   </div>
-                )}
+                )} */}
               </div>
             </main>
           </>

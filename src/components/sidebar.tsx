@@ -37,7 +37,7 @@ export function Sidebar({ activePage, onNavigate, userRole, isDesktopVisible, to
         return [
           { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
           { id: 'school-staff', label: 'Staff & Access', icon: ShieldCheck },
-          { id: 'student-mgmt', label: 'Student Hub', icon: GraduationCap },
+          { id: 'student-hub', label: 'Student Hub', icon: GraduationCap },
           { id: 'class-mapping', label: 'Class Mapping', icon: CalendarRange },
           { id: 'assignments', label: 'Assignments', icon: BookOpen },
           { id: 'exams', label: 'Examinations', icon: FileSignature },

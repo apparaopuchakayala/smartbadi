@@ -19,7 +19,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
-  
+
   const isFetching = useRef(false);
   const lastUserId = useRef<string | null>(null);
 
@@ -29,15 +29,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('*, schools(name, location)')
+        .select('*, schools(*)') // schools(name, location) కి బదులు * వాడండి
         .eq('id', currentUser.id)
-        .limit(1)
-        .maybeSingle();
+        .single();
 
       if (error) throw error;
       setProfile(data);
     } catch (err: any) {
-      console.console.error("Profile Error:", err.message);
+      console.error("Profile Sync Error:", err.message);
       setProfile(null);
     } finally {
       isFetching.current = false;
@@ -62,13 +61,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, currentSession) => {
       if (!mounted) return;
-      
+
       // Performance guard: Only fetch if user changed
       if (currentSession?.user?.id !== lastUserId.current) {
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
         lastUserId.current = currentSession?.user?.id ?? null;
-        
+
         if (currentSession?.user) {
           fetchProfile(currentSession.user);
         } else {

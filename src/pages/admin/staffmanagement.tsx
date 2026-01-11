@@ -208,6 +208,7 @@ export function StaffManagement() {
     s.email?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+
   return (
     <div className="space-y-12 text-left min-h-screen">
       {/* HEADER */}
@@ -329,7 +330,7 @@ export function StaffManagement() {
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowAddModal(false)} className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" />
             <motion.div initial={{ scale: 0.98, y: 10 }} animate={{ scale: 1, y: 0 }} className="relative bg-white w-full max-w-3xl rounded-[32px] p-8 md:p-12 shadow-2xl overflow-y-auto max-h-[90vh] border border-slate-100">
               <div className="flex justify-between items-center mb-10">
-                <h2 className="text-2xl font-light tracking-tight text-slate-800 uppercase">Create <span className="font-bold text-blue-600">Entry</span></h2>
+                <h2 className="text-2xl font-light tracking-tight text-slate-800 ">Create entry for <span className="font-bold text-blue-600">{selectedSchool.name}</span></h2>
                 <button onClick={() => setShowAddModal(false)} className="text-slate-300 hover:text-slate-800 transition-colors"><X size={24} /></button>
               </div>
               <form onSubmit={handleAddUser} className="space-y-10">

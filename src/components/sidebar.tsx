@@ -105,16 +105,19 @@ export function Sidebar({ activePage, onNavigate, userRole, isDesktopVisible, to
         `}
       >
         {/* Header with Close Button for Desktop */}
-        <div className="p-8 pb-4 flex justify-between items-center">
-          <img src={logo} alt="SmartBadi" className="h-12 object-contain" />
+        <div className="p-8 pb-4 flex items-center justify-center relative min-h-[80px]">
+          <img
+            src={logo}
+            alt="SmartBadi"
+            className="h-12 object-contain"
+          />
           <button
             onClick={toggleSidebar}
-            className="hidden md:flex p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
+            className="hidden md:flex absolute right-8 p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
           >
             <ChevronLeft size={20} />
           </button>
         </div>
-
         <div className="px-6 mb-6">
           <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex flex-col items-center text-center">
             <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1 truncate w-full">

@@ -78,16 +78,29 @@ export function StudentHub() {
 
     // --- SECURE REGISTRY WIPE ---
     const handleBulkDelete = async () => {
+        if (!students || students.length === 0) {
+            toast.error("Registry is already empty.");
+            return;
+        }
+
         setIsSaving(true);
-        const loadId = toast.loading("Backend: Wiping Student Registry...");
+        const loadId = toast.loading("Backend: Scrubbing students from Auth system...");
+
         try {
-            const { data, error } = await supabase.functions.invoke('delete-user', { body: { all_students: true } });
+            const { data, error } = await supabase.functions.invoke('delete-user', {
+                body: { all_students: true }
+            });
+
             if (error) throw error;
-            toast.success(data.message || "Registry Cleared", { id: loadId });
+
+            toast.success(data.message || "Registry fully wiped.", { id: loadId });
             setShowDeleteModal(false);
             fetchStudents();
-        } catch (err: any) { toast.error(err.message, { id: loadId }); }
-        finally { setIsSaving(false); }
+        } catch (err: any) {
+            toast.error("Wipe failed: " + err.message, { id: loadId });
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     const handleDeleteSingle = async (id: string) => {
@@ -108,16 +121,26 @@ export function StudentHub() {
             const text = event.target?.result as string;
             const rows = text.split('\n').filter(r => r.trim() !== "");
             const allData = rows.map(row => row.split(',').map(cell => cell.trim()));
+
             const parsed = allData.slice(1).map(row => ({
-                full_name: row[0], dob: row[1], email: row[2], password: row[3],
-                gender: row[4], blood_group: row[5], father_name: row[6],
-                father_mobile: row[7], mother_name: row[8], mother_mobile: row[9],
-                employee_id: row[10], subject_teaching: row[11], address: row[12],
-                residential_address: row[13],
-                role: 'student' // Explicitly set role
+                full_name: row[0],
+                dob: row[1],
+                email: row[2],
+                password: row[3], // ఇది Profiles టేబుల్‌లో 'encrypted_password' కాలమ్‌కి వెళ్తుంది
+                gender: row[4],
+                blood_group: row[5],
+                father_name: row[6],
+                father_mobile: row[7], // ఇది Profiles టేబుల్‌లో 'mobile_number' కాలమ్‌కి వెళ్తుంది
+                mother_name: row[8],
+                mother_mobile: row[9],
+                roll_number: row[10], // ఇది 'roll_number' కాలమ్‌కి వెళ్తుంది
+                current_class: row[11], // ఇది 'current_class' కాలమ్‌కి వెళ్తుంది
+                current_section: row[12], // ఇది 'current_section' కాలమ్‌కి వెళ్తుంది
+                residential_address: row[13], // ఇది 'address' కాలమ్‌కి వెళ్తుంది
+                role: 'student'
             }));
             setCsvData(parsed);
-            toast.success("Student Data File Validated");
+            toast.success("Data Validated Successfully");
         };
         reader.readAsText(file);
     };
@@ -249,8 +272,8 @@ export function StudentHub() {
 
                             <div className="flex-1 overflow-y-auto p-10 bg-slate-50/30 custom-scrollbar">
 
-                                {/* 4-Column Tool Grid */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+                                {/* 4-Column Tool Grid - GAP REDUCED mb-6 */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
 
                                     {/* Download Template */}
                                     <ToolCard icon={<DownloadCloud size={24} />} title="Download Template" step="Step 1" onClick={downloadCSVTemplate} color="red" />
@@ -290,63 +313,77 @@ export function StudentHub() {
                                     </div>
                                 </div>
 
-                                {/* Admission Form */}
-                                <form onSubmit={handleRegister} className={`grid grid-cols-1 lg:grid-cols-3 gap-8 pb-10 transition-all duration-700 ${csvData ? 'opacity-5 blur-[4px] pointer-events-none' : 'opacity-100'}`}>
-                                    <FormSection title="Academic Registry" icon={<GraduationCap size={16} />} color="border-blue-100">
-                                        <FormField label="Full Name *" value={formData.full_name} onChange={(v: any) => setFormData({ ...formData, full_name: v })} required placeholder="Enter student name" />
-                                        <FormField label="Roll Number *" value={formData.employee_id} onChange={(v: any) => setFormData({ ...formData, employee_id: v })} required placeholder="E.g. 2026101" />
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <FormField label="Class" value={formData.subject_teaching} onChange={(v: any) => setFormData({ ...formData, subject_teaching: v })} placeholder="E.g. 10th" />
-                                            <FormField label="Section" value={formData.address} onChange={(v: any) => setFormData({ ...formData, address: v })} placeholder="E.g. A" />
-                                        </div>
-                                    </FormSection>
-
-                                    <FormSection title="Family Details" icon={<UserCircle size={16} />} color="border-orange-100">
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <FormField label="Father Name" value={formData.father_name} onChange={(v: any) => setFormData({ ...formData, father_name: v })} placeholder="Name" />
-                                            <FormField label="Father Mobile" value={formData.father_mobile} onChange={(v: any) => setFormData({ ...formData, father_mobile: v })} placeholder="Number" />
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <FormField label="Mother Name" value={formData.mother_name} onChange={(v: any) => setFormData({ ...formData, mother_name: v })} placeholder="Name" />
-                                            <FormField label="Mother Mobile" value={formData.mother_mobile} onChange={(v: any) => setFormData({ ...formData, mother_mobile: v })} placeholder="Number" />
-                                        </div>
-                                        <FormField label="Address" value={formData.residential_address} onChange={(v: any) => setFormData({ ...formData, residential_address: v })} placeholder="Residential Area" />
-                                    </FormSection>
-
-                                    <FormSection title="System Access" icon={<Users2 size={16} />} color="border-green-100">
-                                        <FormField label="Student Email *" value={formData.email} onChange={(v: any) => setFormData({ ...formData, email: v })} required placeholder="student@school.com" />
-                                        <FormField label="Password *" type="password" value={formData.encrypted_password} onChange={(v: any) => setFormData({ ...formData, encrypted_password: v })} required placeholder="Min 6 chars" />
-                                        <div className="grid grid-cols-2 gap-4 items-end">
-                                            <FormField label="Date of Birth" type="date" value={formData.dob} onChange={(v: any) => setFormData({ ...formData, dob: v })} />
-                                            <div className="space-y-2 px-2">
-                                                <label className="text-[9px] font-black text-slate-400 uppercase ml-1">Blood Group</label>
-                                                <select value={formData.blood_group} onChange={e => setFormData({ ...formData, blood_group: e.target.value })} className="w-full bg-slate-50 rounded-2xl p-4 text-xs font-bold shadow-inner outline-none">
-                                                    {['A+', 'B+', 'O+', 'AB+', 'A-', 'B-', 'O-', 'AB-'].map(b => <option key={b} value={b}>{b}</option>)}
-                                                </select>
+                                {/* CONDITIONAL RENDERING: GAP REMOVED mt-0 */}
+                                <AnimatePresence mode="wait">
+                                    {csvData ? (
+                                        <motion.div
+                                            key="bulk-ready"
+                                            initial={{ y: 20, opacity: 0 }}
+                                            animate={{ y: 0, opacity: 1 }}
+                                            className="mt-0 p-12 bg-white rounded-[50px] border-2 border-green-200 shadow-xl text-center border-[1px] border-solid border-black"
+                                        >
+                                            <div className="w-24 h-24 bg-green-50 text-green-500 rounded-full flex items-center justify-center mx-auto mb-6 border border-black">
+                                                <Sparkles size={40} />
                                             </div>
-                                        </div>
-                                    </FormSection>
+                                            <h3 className="text-3xl font-black text-slate-800 uppercase tracking-tighter mb-2">Registry Files Ready</h3>
+                                            <p className="text-slate-400 text-sm font-bold uppercase tracking-widest mb-10">{csvData.length} Validated students in queue</p>
+                                            <div className="flex flex-col sm:flex-row gap-4 max-w-lg mx-auto">
+                                                <button onClick={handleRegister} className="flex-1 py-5 bg-green-600 text-white rounded-3xl font-black uppercase text-[12px] shadow-lg hover:bg-green-700 active:scale-95 transition-all">Push to Registry</button>
+                                                <button onClick={() => setCsvData(null)} className="px-10 py-5 bg-slate-100 text-slate-500 rounded-3xl font-black uppercase text-[12px] active:scale-95 transition-all">Cancel Batch</button>
+                                            </div>
+                                        </motion.div>
+                                    ) : (
+                                        <motion.form
+                                            key="manual-form"
+                                            initial={{ opacity: 0 }}
+                                            animate={{ opacity: 1 }}
+                                            onSubmit={handleRegister}
+                                            className="grid grid-cols-1 lg:grid-cols-3 gap-8 pb-10"
+                                        >
+                                            <FormSection title="Academic Registry" icon={<GraduationCap size={16} />} color="border-blue-100">
+                                                <FormField label="Full Name *" value={formData.full_name} onChange={(v: any) => setFormData({ ...formData, full_name: v })} required placeholder="Enter student name" />
+                                                <FormField label="Roll Number *" value={formData.employee_id} onChange={(v: any) => setFormData({ ...formData, employee_id: v })} required placeholder="E.g. 2026101" />
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <FormField label="Class" value={formData.subject_teaching} onChange={(v: any) => setFormData({ ...formData, subject_teaching: v })} placeholder="E.g. 10th" />
+                                                    <FormField label="Section" value={formData.address} onChange={(v: any) => setFormData({ ...formData, address: v })} placeholder="E.g. A" />
+                                                </div>
+                                            </FormSection>
 
-                                    <div className="col-span-full pt-6">
-                                        <button type="submit" disabled={isSaving} className="w-full py-6 bg-slate-900 text-white rounded-[30px] font-black uppercase text-[12px] tracking-[6px] shadow-2xl flex items-center justify-center gap-4 group active:scale-95 transition-all">
-                                            {isSaving ? <Loader2 className="animate-spin" /> : <Save size={20} />}
-                                            Authorize Admission
-                                        </button>
-                                    </div>
-                                </form>
+                                            <FormSection title="Family Details" icon={<UserCircle size={16} />} color="border-orange-100">
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <FormField label="Father Name" value={formData.father_name} onChange={(v: any) => setFormData({ ...formData, father_name: v })} placeholder="Name" />
+                                                    <FormField label="Father Mobile" value={formData.father_mobile} onChange={(v: any) => setFormData({ ...formData, father_mobile: v })} placeholder="Number" />
+                                                </div>
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <FormField label="Mother Name" value={formData.mother_name} onChange={(v: any) => setFormData({ ...formData, mother_name: v })} placeholder="Name" />
+                                                    <FormField label="Mother Mobile" value={formData.mother_mobile} onChange={(v: any) => setFormData({ ...formData, mother_mobile: v })} placeholder="Number" />
+                                                </div>
+                                                <FormField label="Address" value={formData.residential_address} onChange={(v: any) => setFormData({ ...formData, residential_address: v })} placeholder="Residential Area" />
+                                            </FormSection>
 
-                                {/* Bulk Finish View */}
-                                {csvData && (
-                                    <motion.div initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="mt-10 p-12 bg-white rounded-[50px] border-2 border-green-200 shadow-xl text-center">
-                                        <div className="w-24 h-24 bg-green-50 text-green-500 rounded-full flex items-center justify-center mx-auto mb-6"><Sparkles size={40} /></div>
-                                        <h3 className="text-3xl font-black text-slate-800 uppercase tracking-tighter mb-2">Registry Files Ready</h3>
-                                        <p className="text-slate-400 text-sm font-bold uppercase tracking-widest mb-10">{csvData.length} Validated students in queue</p>
-                                        <div className="flex flex-col sm:flex-row gap-4 max-w-lg mx-auto">
-                                            <button onClick={handleRegister} className="flex-1 py-5 bg-green-600 text-white rounded-3xl font-black uppercase text-[12px] shadow-lg hover:bg-green-700 active:scale-95 transition-all">Push to Registry</button>
-                                            <button onClick={() => setCsvData(null)} className="px-10 py-5 bg-slate-100 text-slate-500 rounded-3xl font-black uppercase text-[12px] active:scale-95 transition-all">Cancel Batch</button>
-                                        </div>
-                                    </motion.div>
-                                )}
+                                            <FormSection title="System Access" icon={<Users2 size={16} />} color="border-green-100">
+                                                <FormField label="Student Email *" value={formData.email} onChange={(v: any) => setFormData({ ...formData, email: v })} required placeholder="student@school.com" />
+                                                <FormField label="Password *" type="password" value={formData.encrypted_password} onChange={(v: any) => setFormData({ ...formData, encrypted_password: v })} required placeholder="Min 6 chars" />
+                                                <div className="grid grid-cols-2 gap-4 items-end">
+                                                    <FormField label="Date of Birth" type="date" value={formData.dob} onChange={(v: any) => setFormData({ ...formData, dob: v })} />
+                                                    <div className="space-y-2 px-2">
+                                                        <label className="text-[9px] font-black text-slate-400 uppercase ml-1">Blood Group</label>
+                                                        <select value={formData.blood_group} onChange={e => setFormData({ ...formData, blood_group: e.target.value })} className="w-full bg-slate-50 rounded-2xl p-4 text-xs font-bold shadow-inner outline-none">
+                                                            {['A+', 'B+', 'O+', 'AB+', 'A-', 'B-', 'O-', 'AB-'].map(b => <option key={b} value={b}>{b}</option>)}
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                            </FormSection>
+
+                                            <div className="col-span-full pt-6 ">
+                                                <button type="submit" disabled={isSaving} className="w-full py-6 bg-slate-900 text-white rounded-[30px] font-black uppercase text-[12px] tracking-[6px] shadow-2xl flex items-center justify-center gap-4 group active:scale-95 transition-all">
+                                                    {isSaving ? <Loader2 className="animate-spin" /> : <Save size={20} />}
+                                                    Authorize Admission
+                                                </button>
+                                            </div>
+                                        </motion.form>
+                                    )}
+                                </AnimatePresence>
                             </div>
                         </motion.div>
                     </div>
@@ -360,10 +397,10 @@ export function StudentHub() {
                         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} onClick={() => setShowDeleteModal(false)} className="absolute inset-0 bg-red-900/10" />
                         <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} className="relative bg-white w-full max-w-md rounded-[50px] p-12 text-center shadow-2xl border-b-8 border-red-500">
                             <div className="w-24 h-24 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-8 animate-pulse shadow-inner"><AlertTriangle size={48} /></div>
-                            <h2 className="text-2xl font-black text-slate-800 uppercase tracking-tighter mb-3">Terminate Database?</h2>
+                            <h2 className="text-2xl font-black text-slate-800 uppercase tracking-tighter mb-3">Delete Student?</h2>
                             <p className="text-slate-400 text-sm font-bold mb-10 uppercase tracking-wide leading-relaxed">This will erase <b>ALL {students.length} Students</b> and their <b>Login access</b> permanently.</p>
                             <div className="flex flex-col gap-3">
-                                <button onClick={handleBulkDelete} disabled={isSaving} className="w-full py-5 bg-red-500 text-white rounded-3xl font-black uppercase text-[11px] shadow-xl hover:bg-red-600 active:scale-95 transition-all">Wipe Everything</button>
+                                <button onClick={handleBulkDelete} disabled={isSaving} className="w-full py-5 bg-red-500 text-white rounded-3xl font-black uppercase text-[11px] shadow-xl hover:bg-red-600 active:scale-95 transition-all">Delete Everything</button>
                                 <button onClick={() => setShowDeleteModal(false)} className="w-full py-5 bg-slate-50 text-slate-400 rounded-3xl font-black uppercase text-[11px] active:scale-95 transition-all">No, Cancel</button>
                             </div>
                         </motion.div>
@@ -376,7 +413,7 @@ export function StudentHub() {
 
 // --- Internal UI Components ---
 const ToolCard = ({ icon, title, step, onClick, color }: any) => (
-    <div className="p-6 bg-white border border-slate-100 rounded-[35px] shadow-sm flex flex-col gap-4">
+    <div className="p-6 bg-white border border-slate-100 rounded-[35px] shadow-sm flex flex-col gap-4 group hover:shadow-md transition-all">
         <div className="flex items-center gap-3">
             <div className={`p-3 bg-${color}-50 text-${color}-600 rounded-2xl`}>{icon}</div>
             <span className="text-[11px] font-black uppercase text-slate-500 tracking-wider">{step}</span>

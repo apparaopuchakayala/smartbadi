@@ -53,10 +53,10 @@ serve(async (req) => {
       email: email.toLowerCase().trim(),
       password: password,
       email_confirm: true,
-      user_metadata: { 
-        role: targetRole, 
+      user_metadata: {
+        role: targetRole,
         school_id: adminProfile.school_id, // సెక్యూరిటీ కోసం అడ్మిన్ స్కూల్ ఐడి వాడుతున్నాం
-        full_name: profileData.full_name 
+        full_name: profileData.full_name
       }
     });
 
@@ -64,26 +64,36 @@ serve(async (req) => {
 
     // 4. DATABASE PROFILE క్రియేషన్ (Profiles Table)
     // ఇక్కడ 'role' కాలమ్ కి మనం పంపిన targetRole ని అసైన్ చేస్తున్నాం
+    // DATABASE PROFILE క్రియేషన్ (Profiles Table)
     const { error: profileError } = await supabaseAdmin
       .from('profiles')
       .upsert({
         id: authData.user.id,
-        email: email.toLowerCase().trim(),
         full_name: profileData.full_name,
-        role: targetRole, // ఇక్కడ టీచర్ లేదా స్టూడెంట్ అని డైనమిక్ గా మారుతుంది
+        email: email.toLowerCase().trim(),
+        role: 'student',
         school_id: adminProfile.school_id,
-        employee_id: profileData.employee_id,
-        mobile_number: profileData.mobile_number || profileData.father_mobile,
+
+        employee_id: null,
+        subject_teaching: null,
+        date_of_joining: null,
+
         dob: profileData.dob,
+        mobile_number: profileData.father_mobile, 
+        encrypted_password: password, 
         gender: profileData.gender,
-        subject_teaching: profileData.subject_teaching,
-        date_of_joining: profileData.date_of_joining,
         blood_group: profileData.blood_group,
-        address: profileData.address || profileData.residential_address || '',
-        encrypted_password: profileData.encrypted_password || password,
+        address: profileData.residential_address, 
+        father_name: profileData.father_name,
+        father_mobile:profileData.father_mobile,
+        mother_name: profileData.mother_name,
+        mother_mobile: profileData.mother_mobile,
+        roll_number: profileData.roll_number,
+        current_class: profileData.current_class,
+        current_section: profileData.current_section, 
+
         is_active: true
       });
-
     if (profileError) {
       // ప్రొఫైల్ క్రియేషన్ ఫెయిల్ అయితే యూజర్ ని డిలీట్ చేయడం (Rollback)
       await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
@@ -91,9 +101,9 @@ serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ 
+      JSON.stringify({
         message: `${targetRole.toUpperCase()} registered successfully`,
-        user_id: authData.user.id 
+        user_id: authData.user.id
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

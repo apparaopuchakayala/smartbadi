@@ -7,6 +7,7 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
+  // 1. Handle CORS Preflight
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   try {
@@ -15,7 +16,7 @@ serve(async (req) => {
 
     const { target_id, all_students } = await req.json();
 
-    // Validation Check: target_id లేకపోయినా, all_students ఉంటే అనుమతిస్తుంది
+    // కనీసం ఒక ఐడెంటిఫైయర్ ఉండాలి
     if (!target_id && !all_students) {
       throw new Error("Target ID or Bulk Action flag is required");
     }
@@ -31,7 +32,7 @@ serve(async (req) => {
       { global: { headers: { Authorization: authHeader } } }
     );
 
-    // అడ్మిన్ వెరిఫికేషన్
+    // 2. రిక్వెస్టర్ (అడ్మిన్) ని వెరిఫై చేయడం
     const { data: { user: requester }, error: userError } = await supabaseClient.auth.getUser();
     if (userError || !requester) throw new Error("Unauthorized: Identity unknown.");
 
@@ -42,11 +43,12 @@ serve(async (req) => {
       .single();
 
     if (requesterProfile?.role !== 'super-admin' && requesterProfile?.role !== 'school-admin') {
-      throw new Error("Forbidden: Insufficient permissions.");
+      throw new Error("Forbidden: Insufficient permissions to delete users.");
     }
 
-    // CASE A: బల్క్ డిలీట్ (Registry Wipe)
+    // --- CASE A: బల్క్ డిలీట్ (Registry Wipe) ---
     if (all_students === true) {
+      // ఆ స్కూల్ కి చెందిన విద్యార్థులందరినీ Auth నుండి తొలగించడం
       const { data: students, error: fetchError } = await supabaseAdmin
         .from('profiles')
         .select('id')
@@ -55,18 +57,32 @@ serve(async (req) => {
 
       if (fetchError) throw fetchError;
 
+      let successCount = 0;
+      let errorCount = 0;
+
       if (students && students.length > 0) {
-        const deletePromises = students.map(s => supabaseAdmin.auth.admin.deleteUser(s.id));
-        await Promise.all(deletePromises);
+        // సురక్షితంగా ఒక్కొక్కరిని డిలీట్ చేయడం (Looping ensures stable deletion)
+        for (const student of students) {
+          const { error: delError } = await supabaseAdmin.auth.admin.deleteUser(student.id);
+          if (!delError) {
+            successCount++;
+          } else {
+            console.error(`Failed to delete user ${student.id}:`, delError.message);
+            errorCount++;
+          }
+        }
       }
 
       return new Response(
-        JSON.stringify({ message: `Successfully scrubbed ${students?.length || 0} student accounts.` }),
+        JSON.stringify({ 
+          message: `Process completed. Successfully scrubbed ${successCount} accounts. Errors: ${errorCount}` 
+        }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // CASE B: సింగిల్ డిలీట్
+    // --- CASE B: ఒక్కరిని మాత్రమే డిలీట్ చేయడం ---
+    // సెక్యూరిటీ చెక్: వేరే స్కూల్ యూజర్ ని డిలీట్ చేయకుండా అడ్డుకోవడం
     if (requesterProfile.role !== 'super-admin') {
       const { data: targetProfile } = await supabaseAdmin
         .from('profiles')
@@ -75,7 +91,7 @@ serve(async (req) => {
         .single();
 
       if (targetProfile?.school_id !== requesterProfile.school_id) {
-        throw new Error("Security Alert: Access Denied.");
+        throw new Error("Security Alert: You can only delete users from your own institution.");
       }
     }
 
@@ -83,7 +99,7 @@ serve(async (req) => {
     if (authError) throw authError;
 
     return new Response(
-      JSON.stringify({ message: "Student account terminated successfully." }),
+      JSON.stringify({ message: "Student account scrubbed from Auth and Database successfully." }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 

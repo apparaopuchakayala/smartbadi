@@ -186,7 +186,9 @@ export function StaffAndAccess() {
             {/* Header */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                 <div>
-                    <h1 className="text-4xl font-light text-slate-800 tracking-tight uppercase">Staff & Access</h1>
+                    <h1 className="text-4xl font-black uppercase tracking-tighter">
+                        <span className="text-[#2C3E50]">Staff</span> <span className="text-[#8DC63F]">Access</span>
+                    </h1>
                     <p className="text-slate-400 font-medium text-[10px] tracking-[3px] uppercase mt-1">SmartBadi Management System</p>
                 </div>
 

@@ -7,15 +7,18 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
-  // 1. Handle CORS Preflight
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   try {
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) throw new Error("No Authorization Header found");
 
-    const { target_id } = await req.json();
-    if (!target_id) throw new Error("Target ID is required");
+    const { target_id, all_students } = await req.json();
+
+    // Validation Check: target_id లేకపోయినా, all_students ఉంటే అనుమతిస్తుంది
+    if (!target_id && !all_students) {
+      throw new Error("Target ID or Bulk Action flag is required");
+    }
 
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL')!,
@@ -28,13 +31,10 @@ serve(async (req) => {
       { global: { headers: { Authorization: authHeader } } }
     );
 
-    // 2. VERIFY CALLER IDENTITY
-    // ఈ రిక్వెస్ట్ పంపిన యూజర్ ఎవరో వెరిఫై చేయడం
+    // అడ్మిన్ వెరిఫికేషన్
     const { data: { user: requester }, error: userError } = await supabaseClient.auth.getUser();
     if (userError || !requester) throw new Error("Unauthorized: Identity unknown.");
 
-    // 3. SECURITY CHECK: Role-Based Authorization
-    // రిక్వెస్టర్ కి 'super-admin' లేదా 'school-admin' రోల్ ఉందో లేదో చెక్ చేయడం
     const { data: requesterProfile } = await supabaseAdmin
       .from('profiles')
       .select('role, school_id')
@@ -42,11 +42,31 @@ serve(async (req) => {
       .single();
 
     if (requesterProfile?.role !== 'super-admin' && requesterProfile?.role !== 'school-admin') {
-      throw new Error("Forbidden: Insufficient permissions to terminate access.");
+      throw new Error("Forbidden: Insufficient permissions.");
     }
 
-    // 4. CROSS-INSTITUTION PROTECTION
-    // వేరే స్కూల్ యూజర్లని డిలీట్ చేయకుండా అడ్డుకోవడం
+    // CASE A: బల్క్ డిలీట్ (Registry Wipe)
+    if (all_students === true) {
+      const { data: students, error: fetchError } = await supabaseAdmin
+        .from('profiles')
+        .select('id')
+        .eq('school_id', requesterProfile.school_id)
+        .eq('role', 'student');
+
+      if (fetchError) throw fetchError;
+
+      if (students && students.length > 0) {
+        const deletePromises = students.map(s => supabaseAdmin.auth.admin.deleteUser(s.id));
+        await Promise.all(deletePromises);
+      }
+
+      return new Response(
+        JSON.stringify({ message: `Successfully scrubbed ${students?.length || 0} student accounts.` }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // CASE B: సింగిల్ డిలీట్
     if (requesterProfile.role !== 'super-admin') {
       const { data: targetProfile } = await supabaseAdmin
         .from('profiles')
@@ -55,19 +75,15 @@ serve(async (req) => {
         .single();
 
       if (targetProfile?.school_id !== requesterProfile.school_id) {
-        throw new Error("Security Alert: You can only delete users from your own institution.");
+        throw new Error("Security Alert: Access Denied.");
       }
     }
 
-    console.log(`System: User ${requester.id} is terminating access for ${target_id}`);
-
-    // 5. ATOMIC DELETION
-    // ముందుగా Auth నుండి డిలీట్ చేస్తే, ప్రొఫైల్ టేబుల్ లోని ON DELETE CASCADE వల్ల డేటా మొత్తం క్లీన్ అవుతుంది
     const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(target_id);
     if (authError) throw authError;
 
     return new Response(
-      JSON.stringify({ message: "Access Terminated & Data Scrubbed Successfully" }),
+      JSON.stringify({ message: "Student account terminated successfully." }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 

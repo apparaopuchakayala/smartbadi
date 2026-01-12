@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../services/supabaseClient';
 import { useAuth } from '../../context/AuthProvider';
-import { 
-    GraduationCap, Mail, Trash2, Loader2, X, Plus, Search, 
-    BookOpen, Fingerprint, Lock, ImageIcon, UserCircle, 
-    Users2, FileUp, FileDown, CheckCircle2, Save, RotateCcw, Camera, MapPin
+import {
+    GraduationCap, Trash2, Loader2, X, Plus, Search,
+    ImageIcon, UserCircle, Users2, FileUp, FileDown, CheckCircle2,
+    Save, Camera, AlertTriangle, ImagePlus, Sparkles, DownloadCloud, UploadCloud
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
@@ -13,15 +13,15 @@ export function StudentHub() {
     const { profile } = useAuth();
     const fileInputRef = useRef<HTMLInputElement>(null);
     const photoInputRef = useRef<HTMLInputElement>(null);
-    
-    // --- States ---
+    const bulkPhotoRef = useRef<HTMLInputElement>(null);
+
     const [students, setStudents] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [showAddModal, setShowAddModal] = useState(false);
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
-    
-    // --- Bulk & File States ---
+
     const [csvData, setCsvData] = useState<any[] | null>(null);
     const [fileName, setFileName] = useState<string | null>(null);
     const [selectedPhoto, setSelectedPhoto] = useState<File | null>(null);
@@ -29,16 +29,10 @@ export function StudentHub() {
 
     const [formData, setFormData] = useState({
         full_name: '', email: '', encrypted_password: '', role: 'student',
-        employee_id: '', mobile_number: '', dob: '', subject_teaching: '', 
-        gender: 'male', date_of_joining: '', blood_group: 'A+', 
-        address: '', mother_name: '', mother_mobile: '', father_name: '',
-        father_mobile: '', avatar_url: '', residential_address: '' // added for form
+        employee_id: '', father_mobile: '', dob: '', subject_teaching: '',
+        gender: 'male', blood_group: 'A+', address: '',
+        mother_name: '', mother_mobile: '', father_name: '', residential_address: ''
     });
-
-    const filteredStudents = students.filter(s => 
-        s.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
-        s.employee_id?.includes(searchQuery)
-    );
 
     useEffect(() => {
         if (profile?.school_id) fetchStudents();
@@ -56,36 +50,55 @@ export function StudentHub() {
         setLoading(false);
     };
 
-    // --- PHOTO UPLOAD LOGIC ---
-    const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
-            setSelectedPhoto(file);
-            setPhotoPreview(URL.createObjectURL(file));
-        }
+    // --- BULK PHOTO SYNC (Matching Filename to Roll No) ---
+    const handleBulkPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const files = e.target.files;
+        if (!files || files.length === 0) return;
+        setIsSaving(true);
+        const loadId = toast.loading(`Matching and Syncing ${files.length} photos...`);
+        try {
+            let successCount = 0;
+            for (const file of Array.from(files)) {
+                const rollNo = file.name.split('.')[0];
+                const student = students.find(s => s.employee_id === rollNo);
+                if (student) {
+                    const fileExt = file.name.split('.').pop();
+                    const path = `${profile.school_id}/${student.id}.${fileExt}`;
+                    await supabase.storage.from('student-photos').upload(path, file, { upsert: true });
+                    const { data: urlData } = supabase.storage.from('student-photos').getPublicUrl(path);
+                    await supabase.from('profiles').update({ avatar_url: urlData.publicUrl }).eq('id', student.id);
+                    successCount++;
+                }
+            }
+            toast.success(`${successCount} Photos Synced to Profiles!`, { id: loadId });
+            fetchStudents();
+        } catch (err: any) { toast.error(err.message, { id: loadId }); }
+        finally { setIsSaving(false); if (bulkPhotoRef.current) bulkPhotoRef.current.value = ""; }
     };
 
-    const uploadPhotoToStorage = async (file: File, studentId: string) => {
-        const fileExt = file.name.split('.').pop();
-        const filePath = `${profile?.school_id}/${studentId}-${Date.now()}.${fileExt}`;
-        const { error: uploadError } = await supabase.storage.from('student-photos').upload(filePath, file);
-        if (uploadError) throw uploadError;
-        const { data } = supabase.storage.from('student-photos').getPublicUrl(filePath);
-        return data.publicUrl;
+    // --- SECURE REGISTRY WIPE ---
+    const handleBulkDelete = async () => {
+        setIsSaving(true);
+        const loadId = toast.loading("Backend: Wiping Student Registry...");
+        try {
+            const { data, error } = await supabase.functions.invoke('delete-user', { body: { all_students: true } });
+            if (error) throw error;
+            toast.success(data.message || "Registry Cleared", { id: loadId });
+            setShowDeleteModal(false);
+            fetchStudents();
+        } catch (err: any) { toast.error(err.message, { id: loadId }); }
+        finally { setIsSaving(false); }
     };
 
-    // --- CSV LOGIC (FIXED MAPPING TO PREVENT DATE ERRORS) ---
-    const downloadCSVTemplate = () => {
-        const headers = ["FullName", "DOB_YYYY_MM_DD", "Email", "Password", "Gender", "BloodGroup", "FatherName", "FatherMobile", "MotherName", "MotherMobile", "RollNumber", "Class", "Section", "Address"];
-        const csvContent = "data:text/csv;charset=utf-8," + headers.join(",");
-        const link = document.createElement("a");
-        link.setAttribute("href", encodeURI(csvContent));
-        link.setAttribute("download", "SmartBadi_Student_Registry.csv");
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+    const handleDeleteSingle = async (id: string) => {
+        if (!window.confirm("Delete student permanently?")) return;
+        const loadId = toast.loading("Removing student...");
+        const { error } = await supabase.functions.invoke('delete-user', { body: { target_id: id } });
+        if (!error) { toast.success("Student Deleted", { id: loadId }); fetchStudents(); }
+        else { toast.error("Error", { id: loadId }); }
     };
 
+    // --- BULK DATA FILE UPLOAD ---
     const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -93,29 +106,18 @@ export function StudentHub() {
         const reader = new FileReader();
         reader.onload = (event) => {
             const text = event.target?.result as string;
-            const rows = text.split('\n').filter(row => row.trim() !== "");
+            const rows = text.split('\n').filter(r => r.trim() !== "");
             const allData = rows.map(row => row.split(',').map(cell => cell.trim()));
-            
-            // Map strictly based on the order defined in downloadCSVTemplate
-            const parsedRows = allData.slice(1).map(row => ({
-                full_name: row[0],
-                dob: row[1],             // Date field correctly mapped to index 1
-                email: row[2],
-                password: row[3],
-                gender: row[4],
-                blood_group: row[5],
-                father_name: row[6],
-                father_mobile: row[7],
-                mother_name: row[8],
-                mother_mobile: row[9],
-                employee_id: row[10],    // roll_number
-                subject_teaching: row[11], // current_class
-                address: row[12],        // current_section
-                residential_address: row[13], // New Address Field
-                is_active: true
+            const parsed = allData.slice(1).map(row => ({
+                full_name: row[0], dob: row[1], email: row[2], password: row[3],
+                gender: row[4], blood_group: row[5], father_name: row[6],
+                father_mobile: row[7], mother_name: row[8], mother_mobile: row[9],
+                employee_id: row[10], subject_teaching: row[11], address: row[12],
+                residential_address: row[13],
+                role: 'student' // Explicitly set role
             }));
-            setCsvData(parsedRows);
-            toast.success(`${parsedRows.length} Students Validated.`);
+            setCsvData(parsed);
+            toast.success("Student Data File Validated");
         };
         reader.readAsText(file);
     };
@@ -124,207 +126,245 @@ export function StudentHub() {
         e.preventDefault();
         setIsSaving(true);
         const loadId = toast.loading("Processing Synchronized Data...");
-
         try {
-            const studentsToRegister = csvData || [formData];
-            
-            for (const s of studentsToRegister) {
+            const list = csvData || [formData];
+            for (const s of list) {
+                const cleanEmail = s.email.toLowerCase().trim();
                 const { data: res, error } = await supabase.functions.invoke('create-user', {
-                    body: { 
-                        email: s.email.trim().toLowerCase(), 
-                        password: s.password || s.encrypted_password || 'Student@123', 
-                        profileData: { 
-                            full_name: s.full_name,
-                            dob: s.dob,
-                            gender: s.gender,
-                            blood_group: s.blood_group,
-                            father_name: s.father_name,
-                            father_mobile: s.father_mobile,
-                            mother_name: s.mother_name,
-                            mother_mobile: s.mother_mobile,
-                            employee_id: s.employee_id,
-                            subject_teaching: s.subject_teaching,
-                            address: s.address, // section
-                            residential_address: s.residential_address, // residential address
-                            role: 'student', 
-                            school_id: profile.school_id, 
-                            is_active: true 
-                        } 
+                    body: {
+                        email: cleanEmail,
+                        password: s.password || 'Student@123',
+                        profileData: { ...s, role: 'student', school_id: profile.school_id, is_active: true }
                     }
                 });
-                
                 if (error) throw error;
-
-                // Handle Individual Photo Upload
                 if (!csvData && selectedPhoto && res?.user?.id) {
-                    const url = await uploadPhotoToStorage(selectedPhoto, res.user.id);
-                    await supabase.from('profiles').update({ avatar_url: url }).eq('id', res.user.id);
+                    const fileExt = selectedPhoto.name.split('.').pop();
+                    const path = `${profile.school_id}/${res.user.id}.${fileExt}`;
+                    await supabase.storage.from('student-photos').upload(path, selectedPhoto, { upsert: true });
+                    const { data: url } = supabase.storage.from('student-photos').getPublicUrl(path);
+                    await supabase.from('profiles').update({ avatar_url: url.publicUrl }).eq('id', res.user.id);
                 }
             }
+            toast.success("Success: All Records Synced", { id: loadId });
+            setShowAddModal(false); resetForm(); fetchStudents();
+        } catch (err: any) { toast.error(err.message, { id: loadId }); }
+        finally { setIsSaving(false); }
+    };
 
-            toast.success("Registry Updated Successfully", { id: loadId });
-            setShowAddModal(false);
-            resetForm();
-            fetchStudents();
-        } catch (err: any) {
-            toast.error(err.message, { id: loadId });
-        } finally {
-            setIsSaving(false);
-        }
+    const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) { setSelectedPhoto(file); setPhotoPreview(URL.createObjectURL(file)); }
     };
 
     const resetForm = () => {
         setFormData({
             full_name: '', email: '', encrypted_password: '', role: 'student',
-            employee_id: '', mobile_number: '', dob: '', subject_teaching: '', 
-            gender: 'male', date_of_joining: '', blood_group: 'A+', 
-            address: '', mother_name: '', mother_mobile: '', father_name: '',
-            father_mobile: '', avatar_url: '', residential_address: ''
+            employee_id: '', father_mobile: '', dob: '', subject_teaching: '',
+            gender: 'male', blood_group: 'A+', address: '',
+            mother_name: '', mother_mobile: '', father_name: '', residential_address: ''
         });
-        setCsvData(null);
-        setFileName(null);
-        setSelectedPhoto(null);
-        setPhotoPreview(null);
-        if (fileInputRef.current) fileInputRef.current.value = "";
+        setCsvData(null); setFileName(null); setSelectedPhoto(null); setPhotoPreview(null);
     };
 
+    const downloadCSVTemplate = () => {
+        const headers = ["FullName", "DOB(YYYY-MM-DD)", "Email", "Password", "Gender", "BloodGroup", "FatherName", "FatherMobile", "MotherName", "MotherMobile", "RollNumber", "Class", "Section", "Address"];
+        const csvContent = "data:text/csv;charset=utf-8," + headers.join(",");
+        const link = document.createElement("a");
+        link.setAttribute("href", encodeURI(csvContent));
+        link.setAttribute("download", "SmartBadi_Admission_Template.csv");
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
+    const filteredStudents = students.filter(s =>
+        s.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        s.employee_id?.includes(searchQuery)
+    );
+
     return (
-        <div className="space-y-10 text-left min-h-screen pb-20">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+        <div className="space-y-10 text-left min-h-screen pb-20 px-4 md:px-0">
+            {/* Elegant Header */}
+            <div className="flex flex-col md:flex-row justify-between items-center gap-6 bg-white/50 p-6 rounded-[40px] border border-white shadow-sm backdrop-blur-xl">
                 <div>
-                    <h1 className="text-4xl font-light text-slate-800 uppercase tracking-tight">Student Hub</h1>
-                    <p className="text-slate-400 font-medium text-[10px] tracking-[3px] uppercase mt-1">Registry Management</p>
+                    <h1 className="text-4xl font-black uppercase tracking-tighter">
+                        <span className="text-[#2C3E50]">Student</span> <span className="text-[#8DC63F]">Hub</span>
+                    </h1>
+                    <p className="text-slate-400 text-[10px] font-bold tracking-[4px] uppercase mt-1">Institutional Data Registry</p>
                 </div>
-                <div className="flex gap-4 w-full md:w-auto">
-                    <div className="relative flex-1 sm:w-72">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
-                        <input 
-                            placeholder="Find student..." 
-                            className="w-full pl-11 pr-4 py-3.5 bg-white border border-slate-100 rounded-2xl outline-none text-sm focus:border-blue-400 shadow-sm"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                        />
+                <div className="flex flex-wrap items-center gap-4">
+                    <div className="relative w-72">
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
+                        <input placeholder="Search Roll No / Name" className="w-full pl-12 pr-4 py-4 bg-white border-none rounded-[22px] text-sm font-bold shadow-inner outline-none focus:ring-2 focus:ring-blue-100 transition-all" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
                     </div>
-                    <button onClick={() => { resetForm(); setShowAddModal(true); }} className="bg-blue-600 text-white px-8 py-4 rounded-[20px] text-[11px] font-black uppercase tracking-widest shadow-xl flex items-center gap-2 active:scale-95">
-                        <Plus size={18} /> Admission
+                    <button onClick={() => setShowDeleteModal(true)} className="p-4 bg-red-50 text-red-500 rounded-[22px] hover:bg-red-500 hover:text-white transition-all shadow-sm active:scale-95"><Trash2 size={20} /></button>
+                    <button onClick={() => { resetForm(); setShowAddModal(true); }} className="bg-slate-900 text-white px-10 py-4 rounded-[22px] text-[11px] font-black uppercase tracking-widest shadow-xl flex items-center gap-3 hover:bg-blue-600 transition-all active:scale-95">
+                        <Plus size={20} /> New Admission
                     </button>
                 </div>
             </div>
 
             {/* Student Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                {loading ? <Loader2 className="animate-spin text-blue-600 mx-auto col-span-full" /> : 
-                filteredStudents.map((s) => (
-                    <motion.div layout key={s.id} className="bg-white p-5 rounded-[32px] border border-slate-100 shadow-sm hover:shadow-xl transition-all relative group overflow-hidden">
-                        <div className="flex justify-between items-start mb-4">
-                            <div className="w-14 h-14 bg-slate-50 rounded-2xl overflow-hidden border border-slate-100 flex items-center justify-center shadow-inner">
-                                {s.avatar_url ? (
-                                    <img src={s.avatar_url} className="w-full h-full object-cover" alt="" />
-                                ) : (
-                                    <GraduationCap className="text-blue-500" size={24}/>
-                                )}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+                {loading ? <div className="col-span-full py-20 flex flex-col items-center gap-4"><Loader2 className="animate-spin text-blue-500" size={40} /><p className="text-xs font-black text-slate-400 uppercase tracking-widest">Loading Registry...</p></div> :
+                    filteredStudents.map((s) => (
+                        <motion.div layout key={s.id} className="bg-white p-6 rounded-[40px] border border-slate-100 shadow-sm hover:shadow-2xl transition-all relative overflow-hidden group">
+                            <div className="flex justify-between items-start mb-6">
+                                <div className="w-20 h-20 bg-slate-100 rounded-[30px] overflow-hidden border-4 border-white shadow-md group-hover:scale-110 transition-transform duration-500">
+                                    {s.avatar_url ? <img src={s.avatar_url} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-slate-300"><GraduationCap size={32} /></div>}
+                                </div>
+                                <div className="flex flex-col items-end gap-2">
+                                    <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-3 py-1.5 rounded-full uppercase">ID: {s.employee_id}</span>
+                                    <button onClick={() => handleDeleteSingle(s.id)} className="p-2.5 text-slate-200 hover:text-red-500 transition-colors bg-slate-50 rounded-2xl"><Trash2 size={16} /></button>
+                                </div>
                             </div>
-                            <span className="text-[10px] font-black text-slate-400 uppercase bg-slate-50 px-2 py-1 rounded-lg">ID: {s.employee_id}</span>
-                        </div>
-                        <h3 className="text-sm font-black text-slate-800 uppercase truncate">{s.full_name}</h3>
-                        <p className="text-[10px] text-slate-400 font-bold uppercase">{s.subject_teaching} • Sec: {s.address}</p>
-                    </motion.div>
-                ))}
+                            <h3 className="text-md font-black text-slate-800 uppercase truncate mb-1">{s.full_name}</h3>
+                            <div className="flex items-center gap-2 text-slate-400 font-black text-[9px] uppercase tracking-wider">
+                                <span className="bg-slate-100 px-2 py-0.5 rounded-md">Class {s.subject_teaching}</span>
+                                <span className="bg-slate-100 px-2 py-0.5 rounded-md">Sec {s.address}</span>
+                            </div>
+                        </motion.div>
+                    ))}
             </div>
 
+            {/* Admission Modal */}
             <AnimatePresence>
                 {showAddModal && (
                     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
-                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowAddModal(false)} className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" />
-                        <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} className="relative bg-white w-full max-w-6xl rounded-[40px] shadow-2xl flex flex-col max-h-[92vh] overflow-hidden">
-                            <div className="p-8 border-b flex justify-between items-center bg-white">
-                                <h2 className="text-2xl font-black text-slate-800 uppercase">New Admission Registry</h2>
-                                <button type="button" onClick={() => setShowAddModal(false)} className="p-3 bg-slate-50 rounded-2xl hover:text-red-500 transition-all"><X /></button>
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} onClick={() => setShowAddModal(false)} className="absolute inset-0 bg-slate-900/80 backdrop-blur-md" />
+                        <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} className="relative bg-white w-full max-w-6xl rounded-[50px] shadow-2xl flex flex-col max-h-[92vh] overflow-hidden">
+
+                            {/* Modal Header */}
+                            <div className="p-8 border-b flex justify-between items-center bg-white sticky top-0 z-10">
+                                <div className="flex items-center gap-4">
+                                    <div className="p-3 bg-blue-600 text-white rounded-2xl shadow-lg"><Sparkles size={24} /></div>
+                                    <div>
+                                        <h2 className="text-2xl font-black text-slate-800 uppercase tracking-tighter leading-none">Admission Suite</h2>
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Smart Registration System</p>
+                                    </div>
+                                </div>
+                                <button onClick={() => setShowAddModal(false)} className="p-4 bg-slate-50 text-slate-400 rounded-2xl hover:text-red-500 transition-all"><X size={24} /></button>
                             </div>
 
-                            <div className="flex-1 overflow-y-auto p-10 bg-slate-50/20 custom-scrollbar">
-                                {/* Photo & Bulk Controls */}
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-                                    <div className={`p-6 bg-white border-2 rounded-[32px] flex flex-col items-center justify-center gap-3 transition-all ${photoPreview ? 'border-blue-500' : 'border-dashed border-slate-200'} ${csvData ? 'opacity-20 pointer-events-none' : ''}`}>
-                                        <div onClick={() => photoInputRef.current?.click()} className="w-20 h-20 bg-slate-50 rounded-3xl overflow-hidden cursor-pointer flex items-center justify-center border border-slate-100 group shadow-inner">
-                                            {photoPreview ? <img src={photoPreview} className="w-full h-full object-cover" alt="" /> : <Camera className="text-slate-300 group-hover:text-blue-500" size={32}/>}
-                                        </div>
-                                        <input type="file" ref={photoInputRef} onChange={handlePhotoSelect} accept="image/*" className="hidden" />
-                                        <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Profile Photo</span>
-                                    </div>
+                            <div className="flex-1 overflow-y-auto p-10 bg-slate-50/30 custom-scrollbar">
 
-                                    <div className="p-6 bg-white border border-blue-100 rounded-[32px] flex items-center justify-between shadow-sm">
-                                        <div className="flex items-center gap-3"><FileDown className="text-blue-500" /> <span className="text-[11px] font-black uppercase text-slate-500">CSV Template</span></div>
-                                        <button type="button" onClick={downloadCSVTemplate} className="text-[10px] font-black bg-blue-600 text-white px-6 py-2.5 rounded-xl uppercase">Download</button>
-                                    </div>
+                                {/* 4-Column Tool Grid */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
 
-                                    <div className={`p-6 bg-white border-2 rounded-[32px] flex items-center justify-between transition-all ${csvData ? 'border-green-500 bg-green-50/30' : 'border-slate-100'}`}>
+                                    {/* Download Template */}
+                                    <ToolCard icon={<DownloadCloud size={24} />} title="Download Template" step="Step 1" onClick={downloadCSVTemplate} color="red" />
+
+                                    {/* Upload Student Data */}
+                                    <div className={`p-6 bg-white border rounded-[35px] shadow-sm flex flex-col gap-4 transition-all ${csvData ? 'border-green-500 bg-green-50/20' : 'border-slate-100'}`}>
                                         <div className="flex items-center gap-3">
-                                            <div className={`p-3 rounded-2xl ${csvData ? 'bg-green-500 text-white animate-pulse' : 'bg-slate-100 text-slate-400'}`}>
-                                                {csvData ? <CheckCircle2 size={24} /> : <FileUp size={24} />}
-                                            </div>
-                                            <span className="text-[11px] font-black uppercase text-slate-500 block truncate max-w-[100px]">{fileName || 'Bulk Upload'}</span>
+                                            <div className={`p-3 rounded-2xl ${csvData ? 'bg-green-500 text-white animate-bounce' : 'bg-green-50 text-green-600'}`}>{csvData ? <CheckCircle2 size={20} /> : <FileUp size={20} />}</div>
+                                            <span className="text-[11px] font-black uppercase text-slate-500 tracking-wider">Step 2</span>
                                         </div>
                                         <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept=".csv" className="hidden" />
-                                        <button type="button" onClick={() => csvData ? setCsvData(null) : fileInputRef.current?.click()} className={`text-[10px] font-black px-6 py-2.5 rounded-xl uppercase ${csvData ? 'bg-red-50 text-red-500' : 'bg-blue-600 text-white'}`}>
-                                            {csvData ? 'Remove' : 'Select'}
+                                        <button onClick={() => fileInputRef.current?.click()} className="w-full py-4 bg-green-600 text-white rounded-2xl text-[10px] font-black uppercase shadow-lg shadow-green-100 active:scale-95 transition-all">
+                                            {csvData ? 'Data Loaded' : 'Upload Student Data'}
                                         </button>
+                                    </div>
+
+                                    {/* Bulk Photo Sync */}
+                                    <div className="p-6 bg-white border border-slate-100 rounded-[35px] shadow-sm flex flex-col gap-4">
+                                        <div className="flex items-center gap-3">
+                                            <div className="p-3 bg-orange-50 text-orange-600 rounded-2xl"><ImagePlus size={20} /></div>
+                                            <span className="text-[11px] font-black uppercase text-slate-500 tracking-wider">Step 3</span>
+                                        </div>
+                                        <input type="file" multiple accept="image/*" ref={bulkPhotoRef} onChange={handleBulkPhotoUpload} className="hidden" id="bulk-photo-sync" />
+                                        <button onClick={() => bulkPhotoRef.current?.click()} className="w-full py-4 bg-orange-500 text-white rounded-2xl text-[10px] font-black uppercase shadow-lg shadow-orange-100 active:scale-95 transition-all">Bulk Photo Sync</button>
+                                    </div>
+
+                                    {/* Individual Photo Preview */}
+                                    <div className={`p-6 bg-white border rounded-[35px] shadow-sm flex items-center justify-between gap-4 transition-all ${photoPreview ? 'border-blue-500' : 'border-slate-100'}`}>
+                                        <div onClick={() => photoInputRef.current?.click()} className="w-16 h-16 bg-slate-50 rounded-2xl overflow-hidden border cursor-pointer group flex items-center justify-center shadow-inner">
+                                            {photoPreview ? <img src={photoPreview} className="w-full h-full object-cover" /> : <Camera className="text-slate-300 group-hover:text-blue-500 transition-colors" size={24} />}
+                                        </div>
+                                        <div className="flex flex-col gap-1 flex-1">
+                                            <span className="text-[10px] font-black uppercase text-slate-400">Single Entry</span>
+                                            <input type="file" ref={photoInputRef} onChange={handlePhotoSelect} accept="image/*" className="hidden" />
+                                            <button onClick={() => photoInputRef.current?.click()} className="text-[9px] font-black text-blue-600 uppercase text-left">Upload Pic</button>
+                                        </div>
                                     </div>
                                 </div>
 
-                                <form onSubmit={handleRegister} className={`space-y-12 pb-10 transition-all ${csvData ? 'opacity-20 blur-[2px] pointer-events-none' : ''}`}>
-                                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                                        <FormSection title="Academic Details" icon={<GraduationCap size={16}/>} color="border-blue-100">
-                                            <FormField label="Full Name *" value={formData.full_name} onChange={(v:any)=>setFormData({...formData, full_name:v})} required />
-                                            <FormField label="Roll Number *" value={formData.employee_id} onChange={(v:any)=>setFormField({...formData, employee_id:v})} required />
-                                            <div className="grid grid-cols-2 gap-4">
-                                                <FormField label="Grade/Class" value={formData.subject_teaching} onChange={(v:any)=>setFormData({...formData, subject_teaching:v})} />
-                                                <FormField label="Section" value={formData.address} onChange={(v:any)=>setFormData({...formData, address:v})} />
-                                            </div>
-                                        </FormSection>
+                                {/* Admission Form */}
+                                <form onSubmit={handleRegister} className={`grid grid-cols-1 lg:grid-cols-3 gap-8 pb-10 transition-all duration-700 ${csvData ? 'opacity-5 blur-[4px] pointer-events-none' : 'opacity-100'}`}>
+                                    <FormSection title="Academic Registry" icon={<GraduationCap size={16} />} color="border-blue-100">
+                                        <FormField label="Full Name *" value={formData.full_name} onChange={(v: any) => setFormData({ ...formData, full_name: v })} required placeholder="Enter student name" />
+                                        <FormField label="Roll Number *" value={formData.employee_id} onChange={(v: any) => setFormData({ ...formData, employee_id: v })} required placeholder="E.g. 2026101" />
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <FormField label="Class" value={formData.subject_teaching} onChange={(v: any) => setFormData({ ...formData, subject_teaching: v })} placeholder="E.g. 10th" />
+                                            <FormField label="Section" value={formData.address} onChange={(v: any) => setFormData({ ...formData, address: v })} placeholder="E.g. A" />
+                                        </div>
+                                    </FormSection>
 
-                                        <FormSection title="Family & Address" icon={<UserCircle size={16}/>} color="border-orange-100">
-                                            <div className="grid grid-cols-2 gap-4">
-                                                <FormField label="Father Name" value={formData.father_name} onChange={(v:any)=>setFormData({...formData, father_name:v})} />
-                                                <FormField label="Father Mobile" value={formData.father_mobile} onChange={(v:any)=>setFormData({...formData, father_mobile:v})} />
-                                            </div>
-                                            <div className="grid grid-cols-2 gap-4">
-                                                <FormField label="Mother Name" value={formData.mother_name} onChange={(v:any)=>setFormData({...formData, mother_name:v})} />
-                                                <FormField label="Mother Mobile" value={formData.mother_mobile} onChange={(v:any)=>setFormData({...formData, mother_mobile:v})} />
-                                            </div>
-                                            <FormField label="Residential Address" value={formData.residential_address} onChange={(v:any)=>setFormData({...formData, residential_address:v})} placeholder="Street, City, Zip" />
-                                        </FormSection>
+                                    <FormSection title="Family Details" icon={<UserCircle size={16} />} color="border-orange-100">
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <FormField label="Father Name" value={formData.father_name} onChange={(v: any) => setFormData({ ...formData, father_name: v })} placeholder="Name" />
+                                            <FormField label="Father Mobile" value={formData.father_mobile} onChange={(v: any) => setFormData({ ...formData, father_mobile: v })} placeholder="Number" />
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <FormField label="Mother Name" value={formData.mother_name} onChange={(v: any) => setFormData({ ...formData, mother_name: v })} placeholder="Name" />
+                                            <FormField label="Mother Mobile" value={formData.mother_mobile} onChange={(v: any) => setFormData({ ...formData, mother_mobile: v })} placeholder="Number" />
+                                        </div>
+                                        <FormField label="Address" value={formData.residential_address} onChange={(v: any) => setFormData({ ...formData, residential_address: v })} placeholder="Residential Area" />
+                                    </FormSection>
 
-                                        <FormSection title="Identity & Health" icon={<Users2 size={16}/>} color="border-green-100">
-                                            <FormField label="Email *" value={formData.email} onChange={(v:any)=>setFormData({...formData, email:v})} required />
-                                            <FormField label="Password *" type="password" value={formData.encrypted_password} onChange={(v:any)=>setFormData({...formData, encrypted_password:v})} required />
-                                            <div className="grid grid-cols-2 gap-4">
-                                                <FormField label="Date of Birth" type="date" value={formData.dob} onChange={(v:any)=>setFormData({...formData, dob:v})} />
-                                                <div className="space-y-1">
-                                                    <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Blood Group</label>
-                                                    <select value={formData.blood_group} onChange={e => setFormData({...formData, blood_group: e.target.value})} className="w-full bg-slate-50 border border-slate-100 rounded-[15px] p-3 text-xs font-bold text-slate-700 outline-none">
-                                                        {['A+', 'B+', 'O+', 'AB+', 'A-', 'B-', 'O-', 'AB-'].map(b => <option key={b} value={b}>{b}</option>)}
-                                                    </select>
-                                                </div>
+                                    <FormSection title="System Access" icon={<Users2 size={16} />} color="border-green-100">
+                                        <FormField label="Student Email *" value={formData.email} onChange={(v: any) => setFormData({ ...formData, email: v })} required placeholder="student@school.com" />
+                                        <FormField label="Password *" type="password" value={formData.encrypted_password} onChange={(v: any) => setFormData({ ...formData, encrypted_password: v })} required placeholder="Min 6 chars" />
+                                        <div className="grid grid-cols-2 gap-4 items-end">
+                                            <FormField label="Date of Birth" type="date" value={formData.dob} onChange={(v: any) => setFormData({ ...formData, dob: v })} />
+                                            <div className="space-y-2 px-2">
+                                                <label className="text-[9px] font-black text-slate-400 uppercase ml-1">Blood Group</label>
+                                                <select value={formData.blood_group} onChange={e => setFormData({ ...formData, blood_group: e.target.value })} className="w-full bg-slate-50 rounded-2xl p-4 text-xs font-bold shadow-inner outline-none">
+                                                    {['A+', 'B+', 'O+', 'AB+', 'A-', 'B-', 'O-', 'AB-'].map(b => <option key={b} value={b}>{b}</option>)}
+                                                </select>
                                             </div>
-                                        </FormSection>
+                                        </div>
+                                    </FormSection>
+
+                                    <div className="col-span-full pt-6">
+                                        <button type="submit" disabled={isSaving} className="w-full py-6 bg-slate-900 text-white rounded-[30px] font-black uppercase text-[12px] tracking-[6px] shadow-2xl flex items-center justify-center gap-4 group active:scale-95 transition-all">
+                                            {isSaving ? <Loader2 className="animate-spin" /> : <Save size={20} />}
+                                            Authorize Admission
+                                        </button>
                                     </div>
-                                    <button type="submit" disabled={isSaving} className="w-full py-6 bg-slate-900 text-white rounded-[24px] text-[11px] font-black uppercase tracking-[5px] hover:bg-blue-600 transition-all shadow-2xl">
-                                        {isSaving ? "Syncing..." : "Authorize Registry"}
-                                    </button>
                                 </form>
 
-                                {/* Bulk Progress Status */}
+                                {/* Bulk Finish View */}
                                 {csvData && (
-                                    <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="mt-10 p-10 bg-green-50 rounded-[40px] border-2 border-green-200 border-dashed text-center">
-                                        <h3 className="text-xl font-black text-green-800 uppercase mb-2 tracking-tight">Ready to Synchronize</h3>
-                                        <p className="text-sm font-bold text-green-600 uppercase mb-8 tracking-widest">{csvData.length} records in batch</p>
-                                        <div className="flex gap-4 max-w-md mx-auto">
-                                            <button type="button" onClick={handleRegister} className="flex-1 py-5 bg-green-600 text-white rounded-2xl font-black uppercase text-[12px] shadow-xl hover:bg-green-700 transition-all active:scale-95">Push to Database</button>
-                                            <button type="button" onClick={resetForm} className="px-8 py-5 bg-white text-slate-400 rounded-2xl font-black uppercase text-[12px] border border-slate-200">Cancel</button>
+                                    <motion.div initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="mt-10 p-12 bg-white rounded-[50px] border-2 border-green-200 shadow-xl text-center">
+                                        <div className="w-24 h-24 bg-green-50 text-green-500 rounded-full flex items-center justify-center mx-auto mb-6"><Sparkles size={40} /></div>
+                                        <h3 className="text-3xl font-black text-slate-800 uppercase tracking-tighter mb-2">Registry Files Ready</h3>
+                                        <p className="text-slate-400 text-sm font-bold uppercase tracking-widest mb-10">{csvData.length} Validated students in queue</p>
+                                        <div className="flex flex-col sm:flex-row gap-4 max-w-lg mx-auto">
+                                            <button onClick={handleRegister} className="flex-1 py-5 bg-green-600 text-white rounded-3xl font-black uppercase text-[12px] shadow-lg hover:bg-green-700 active:scale-95 transition-all">Push to Registry</button>
+                                            <button onClick={() => setCsvData(null)} className="px-10 py-5 bg-slate-100 text-slate-500 rounded-3xl font-black uppercase text-[12px] active:scale-95 transition-all">Cancel Batch</button>
                                         </div>
                                     </motion.div>
                                 )}
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
+            {/* Wipe Confirmation Modal */}
+            <AnimatePresence>
+                {showDeleteModal && (
+                    <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 backdrop-blur-md">
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} onClick={() => setShowDeleteModal(false)} className="absolute inset-0 bg-red-900/10" />
+                        <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} className="relative bg-white w-full max-w-md rounded-[50px] p-12 text-center shadow-2xl border-b-8 border-red-500">
+                            <div className="w-24 h-24 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-8 animate-pulse shadow-inner"><AlertTriangle size={48} /></div>
+                            <h2 className="text-2xl font-black text-slate-800 uppercase tracking-tighter mb-3">Terminate Database?</h2>
+                            <p className="text-slate-400 text-sm font-bold mb-10 uppercase tracking-wide leading-relaxed">This will erase <b>ALL {students.length} Students</b> and their <b>Login access</b> permanently.</p>
+                            <div className="flex flex-col gap-3">
+                                <button onClick={handleBulkDelete} disabled={isSaving} className="w-full py-5 bg-red-500 text-white rounded-3xl font-black uppercase text-[11px] shadow-xl hover:bg-red-600 active:scale-95 transition-all">Wipe Everything</button>
+                                <button onClick={() => setShowDeleteModal(false)} className="w-full py-5 bg-slate-50 text-slate-400 rounded-3xl font-black uppercase text-[11px] active:scale-95 transition-all">No, Cancel</button>
                             </div>
                         </motion.div>
                     </div>
@@ -334,16 +374,34 @@ export function StudentHub() {
     );
 }
 
-const FormSection = ({ title, icon, color, children }: any) => (
-    <div className={`p-8 bg-white rounded-[40px] border-2 ${color} space-y-5 text-left`}>
-        <h4 className="flex items-center gap-3 text-[11px] font-black uppercase tracking-[3px] text-slate-500 border-b pb-4">{icon} {title}</h4>
-        {children}
+// --- Internal UI Components ---
+const ToolCard = ({ icon, title, step, onClick, color }: any) => (
+    <div className="p-6 bg-white border border-slate-100 rounded-[35px] shadow-sm flex flex-col gap-4">
+        <div className="flex items-center gap-3">
+            <div className={`p-3 bg-${color}-50 text-${color}-600 rounded-2xl`}>{icon}</div>
+            <span className="text-[11px] font-black uppercase text-slate-500 tracking-wider">{step}</span>
+        </div>
+        <button onClick={onClick} className={`w-full py-4 bg-${color}-600 text-white rounded-2xl text-[10px] font-black uppercase shadow-lg shadow-${color}-100 active:scale-95 transition-all`}>{title}</button>
     </div>
 );
 
-const FormField = ({ label, type = "text", value, onChange, placeholder, required }: any) => (
-    <div className="space-y-1.5 text-left">
-        <label className="text-[9px] font-black text-slate-400 uppercase ml-2 tracking-widest">{label}</label>
-        <input type={type} value={value} placeholder={placeholder} required={required} onChange={e => onChange(e.target.value)} className="w-full bg-slate-50 border border-slate-100 rounded-[15px] p-3.5 text-xs font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:bg-white focus:border-blue-300 transition-all placeholder:text-slate-300 shadow-sm" />
+const FormSection = ({ title, icon, color, children }: any) => (
+    <div className={`p-8 bg-white rounded-[45px] border-2 ${color} space-y-6 text-left shadow-sm hover:shadow-md transition-all`}>
+        <h4 className="flex items-center gap-3 text-[11px] font-black uppercase tracking-[3px] text-slate-500 border-b border-slate-50 pb-5">{icon} {title}</h4>
+        <div className="space-y-4">{children}</div>
+    </div>
+);
+
+const FormField = ({ label, type = "text", value, onChange, required, placeholder }: any) => (
+    <div className="space-y-2 text-left px-2">
+        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">{label}</label>
+        <input
+            type={type}
+            value={value}
+            required={required}
+            placeholder={placeholder}
+            onChange={e => onChange(e.target.value)}
+            className="w-full bg-slate-50 border-none rounded-2xl p-4 text-[12px] font-bold text-slate-700 shadow-inner placeholder:text-slate-300 focus:ring-2 focus:ring-blue-100 transition-all outline-none"
+        />
     </div>
 );

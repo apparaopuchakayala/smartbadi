@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { Mail, Lock, Loader2, ArrowLeft ,ShieldAlert} from 'lucide-react';
+import { Mail, Lock, Loader2, ArrowLeft, ShieldAlert } from 'lucide-react';
 import logo from '../../assets/smartbadi.png';
 import { supabase } from '../../services/supabaseClient';
 import toast from 'react-hot-toast';
-import { motion, AnimatePresence  } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
+import {smartBadiApi} from '../../services/smartBadiApi.ts';
 
 interface LoginPageProps {
   schoolContext: any;
@@ -29,39 +30,23 @@ export function LoginPage({
     setLoading(true);
 
     try {
-      const { data, error: funcError } = await supabase.functions.invoke('secure-login', {
-        body: {
-          email: email.trim().toLowerCase(),
-          password,
-          school_id: schoolContext?.id
-        }
+      // --- మార్పు: సెంట్రల్ ఏపీఐ ద్వారా లాగిన్ ---
+      const data = await smartBadiApi.secureLogin({
+        email: email.trim().toLowerCase(),
+        password,
+        school_id: schoolContext?.id
       });
 
-      if (funcError) {
-        const errorDetails = await funcError.context?.json();
-        throw new Error(errorDetails?.error || "Security Check Failed");
-      }
+      const { error: sessionError } = await supabase.auth.setSession({
+        access_token: data.session.access_token,
+        refresh_token: data.session.refresh_token,
+      });
 
-      if (data?.error) {
-        throw new Error(data.error);
-      }
+      if (sessionError) throw sessionError;
 
-      if (data?.session) {
-        const { error: sessionError } = await supabase.auth.setSession({
-          access_token: data.session.access_token,
-          refresh_token: data.session.refresh_token,
-        });
-
-        if (sessionError) throw sessionError;
-
-        toast.success("Identity Verified. Welcome back!");
-        onLoginSuccess();
-      } else {
-        throw new Error("Unable to establish secure session.");
-      }
-
+      toast.success("Identity Verified. Welcome back!");
+      onLoginSuccess();
     } catch (err: any) {
-      // toast.error(err.message);
       setErrorMsg(err.message);
       await supabase.auth.signOut();
     } finally {

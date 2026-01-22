@@ -2,7 +2,8 @@ import { useState } from 'react';
 import {
   LayoutDashboard, Building2, Users, ShieldCheck,
   GraduationCap, CalendarRange, BookOpen, FileSignature,
-  PieChart, LogOut, Menu, X, CheckCircle2, ChevronLeft
+  PieChart, LogOut, Menu, X, CheckCircle2, ChevronLeft, 
+  FileText, Split, UserCog, ChevronDown
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import logo from '../assets/smartbadi.png';
@@ -21,9 +22,17 @@ interface SidebarProps {
 export function Sidebar({ activePage, onNavigate, userRole, isDesktopVisible, toggleSidebar }: SidebarProps) {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [showLogoutSuccess, setShowLogoutSuccess] = useState(false);
+  
+  // --- SUBMENU STATES ---
+  const [isCampusHovered, setIsCampusHovered] = useState(false);
+  const [isCampusLocked, setIsCampusLocked] = useState(false);
+  
   const { profile, session } = useAuth();
-
   const displayName = profile?.full_name || session?.user?.user_metadata?.full_name || 'User';
+
+  // కండిషన్: హోవర్ చేసినా, క్లిక్ చేసినా, లేదా లోపల ఉన్న ఏదైనా పేజీ యాక్టివ్‌గా ఉన్నా సబ్-మెనూ ఓపెన్ అవ్వాలి
+  const campusSubPages = ['infra', 'school-staff', 'stfplanning'];
+  const isCampusOpen = isCampusHovered || isCampusLocked || campusSubPages.includes(activePage);
 
   const getMenuItems = () => {
     switch (userRole) {
@@ -35,11 +44,12 @@ export function Sidebar({ activePage, onNavigate, userRole, isDesktopVisible, to
         ];
       case 'school-admin':
         return [
-          { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-          { id: 'school-staff', label: 'Staff & Access', icon: ShieldCheck },
+          { id: 'admin-dashboard', label: 'Dashboard', icon: LayoutDashboard },
+          // Note: Campus Setup items (infra, school-staff, stfplanning) manual గా కింద హ్యాండిల్ చేయబడ్డాయి
           { id: 'student-hub', label: 'Student Hub', icon: GraduationCap },
           { id: 'class-mapping', label: 'Class Mapping', icon: CalendarRange },
           { id: 'assignments', label: 'Assignments', icon: BookOpen },
+          { id: 'generation', label: 'Generate', icon: FileText },
           { id: 'exams', label: 'Examinations', icon: FileSignature },
           { id: 'analytics', label: 'Performance', icon: PieChart },
         ];
@@ -87,7 +97,6 @@ export function Sidebar({ activePage, onNavigate, userRole, isDesktopVisible, to
         )}
       </AnimatePresence>
 
-      {/* Mobile Toggle Button */}
       <button
         onClick={() => setIsMobileOpen(!isMobileOpen)}
         className="md:hidden fixed top-4 left-4 z-50 p-2.5 bg-white text-slate-600 rounded-xl shadow-lg border border-slate-100"
@@ -104,65 +113,102 @@ export function Sidebar({ activePage, onNavigate, userRole, isDesktopVisible, to
           ${!isDesktopVisible ? 'md:w-0 md:opacity-0 md:-translate-x-full' : 'md:w-72 md:opacity-100'}
         `}
       >
-        {/* Header with Close Button for Desktop */}
         <div className="p-8 pb-4 flex items-center justify-center relative min-h-[80px]">
-          <img
-            src={logo}
-            alt="SmartBadi"
-            className="h-12 object-contain"
-          />
-          <button
-            onClick={toggleSidebar}
-            className="hidden md:flex absolute right-8 p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
-          >
+          <img src={logo} alt="SmartBadi" className="h-12 object-contain" />
+          <button onClick={toggleSidebar} className="hidden md:flex absolute right-8 p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all">
             <ChevronLeft size={20} />
           </button>
         </div>
+
         <div className="px-6 mb-6">
           <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex flex-col items-center text-center">
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1 truncate w-full">
-              {profile?.schools?.name || 'Welcome'}
-            </p>
-            <h3 className="text-sm font-black text-slate-700 line-clamp-1 mb-2">
-              {displayName}
-            </h3>
-            <span className="px-3 py-1 bg-blue-100 text-blue-600 rounded-full text-[8px] font-bold uppercase tracking-widest border border-blue-200">
-              {userRole?.replace('-', ' ')}
-            </span>
+            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1 truncate w-full">{profile?.schools?.name || 'Welcome'}</p>
+            <h3 className="text-sm font-black text-slate-700 line-clamp-1 mb-2">{displayName}</h3>
+            <span className="px-3 py-1 bg-blue-100 text-blue-600 rounded-full text-[8px] font-bold uppercase tracking-widest border border-blue-200">{userRole?.replace('-', ' ')}</span>
           </div>
         </div>
 
-        <nav className="flex-1 px-4 space-y-2 overflow-y-auto">
+        <nav className="flex-1 px-4 space-y-2 overflow-y-auto custom-scrollbar">
           {menuItems.map((item) => {
             const isActive = activePage === item.id;
             const Icon = item.icon;
+
             return (
-              <button
-                key={item.id}
-                onClick={() => {
-                  onNavigate(item.id);
-                  if (window.innerWidth < 768) setIsMobileOpen(false);
-                }}
-                className={`w-full flex items-center gap-4 px-6 py-4 rounded-2xl transition-all duration-300 group relative ${isActive ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-50'
-                  }`}
-              >
-                <Icon size={20} className={isActive ? 'scale-110' : 'group-hover:scale-110'} />
-                <span className="text-[11px] font-bold uppercase tracking-widest">{item.label}</span>
-              </button>
+              <div key={item.id}>
+                <button
+                  onClick={() => {
+                    onNavigate(item.id);
+                    if (window.innerWidth < 768) setIsMobileOpen(false);
+                  }}
+                  className={`w-full flex items-center gap-4 px-6 py-4 rounded-2xl transition-all duration-300 group relative ${isActive ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-50'}`}
+                >
+                  <Icon size={20} className={isActive ? 'scale-110' : 'group-hover:scale-110'} />
+                  <span className="text-[11px] font-bold uppercase tracking-widest">{item.label}</span>
+                </button>
+
+                {/* --- CAMPUS SETUP DROPDOWN (AFTER DASHBOARD) --- */}
+                {userRole === 'school-admin' && item.id === 'admin-dashboard' && (
+                  <div 
+                    className="my-1 py-1"
+                    onMouseEnter={() => setIsCampusHovered(true)}
+                    onMouseLeave={() => setIsCampusHovered(false)}
+                  >
+                    <button
+                      onClick={() => setIsCampusLocked(!isCampusLocked)}
+                      className={`w-full flex items-center justify-between px-6 py-4 rounded-2xl transition-all duration-300 group ${isCampusOpen ? 'bg-slate-50 text-blue-600' : 'text-slate-400 hover:bg-slate-50'}`}
+                    >
+                      <div className="flex items-center gap-4">
+                        <Split size={20} className={isCampusOpen ? 'scale-110' : 'group-hover:scale-110'} />
+                        <span className="text-[11px] font-bold uppercase tracking-widest">Campus Setup</span>
+                      </div>
+                      <ChevronDown size={16} className={`transition-transform duration-300 ${isCampusOpen ? 'rotate-180' : ''}`} />
+                    </button>
+
+                    <AnimatePresence>
+                      {isCampusOpen && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          className="overflow-hidden pl-10 space-y-1"
+                        >
+                          <SubItem id="infra" label="Class Setup" activePage={activePage} onNavigate={onNavigate} setIsMobileOpen={setIsMobileOpen} />
+                          <SubItem id="school-staff" label="Staff Setup" activePage={activePage} onNavigate={onNavigate} setIsMobileOpen={setIsMobileOpen} />
+                          <SubItem id="stfplanning" label="Staff Planning" activePage={activePage} onNavigate={onNavigate} setIsMobileOpen={setIsMobileOpen} />
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                )}
+              </div>
             );
           })}
         </nav>
 
         <div className="p-4 mt-auto border-t border-slate-50">
-          <button
-            onClick={handleLogout}
-            className="w-full flex items-center justify-center gap-3 px-6 py-4 rounded-2xl text-red-400 hover:bg-red-50 transition-all"
-          >
+          <button onClick={handleLogout} className="w-full flex items-center justify-center gap-3 px-6 py-4 rounded-2xl text-red-400 hover:bg-red-50 transition-all">
             <LogOut size={18} />
             <span className="text-[11px] font-bold uppercase tracking-widest">Sign Out</span>
           </button>
         </div>
       </aside>
     </>
+  );
+}
+
+// --- SUB-ITEM COMPONENT FOR CLEANER CODE ---
+function SubItem({ id, label, activePage, onNavigate, setIsMobileOpen }: any) {
+  const isActive = activePage === id;
+  return (
+    <button
+      onClick={() => {
+        onNavigate(id);
+        if (window.innerWidth < 768) setIsMobileOpen(false);
+      }}
+      className={`w-full flex items-center gap-3 px-6 py-3 rounded-xl transition-all text-left ${isActive ? 'text-blue-600 font-black' : 'text-slate-400 hover:text-slate-600'}`}
+    >
+      <div className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-blue-600' : 'bg-slate-200'}`} />
+      <span className="text-[10px] font-bold uppercase tracking-widest">{label}</span>
+    </button>
   );
 }

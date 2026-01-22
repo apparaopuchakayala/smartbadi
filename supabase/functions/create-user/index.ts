@@ -7,111 +7,121 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
-  // CORS Preflight handle చేయడం
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   try {
     const authHeader = req.headers.get('Authorization');
-    if (!authHeader) throw new Error("No Authorization Header found");
+    const token = authHeader?.replace('Bearer ', '');
+    if (!token) throw new Error("Unauthorized");
 
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+      Deno.env.get('SERVICE_ROLE_KEY')!,
+      { auth: { persistSession: false } }
     );
 
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_ANON_KEY')!,
-      { global: { headers: { Authorization: authHeader } } }
-    );
+    // 1. Requester Validation
+    const { data: { user: requester }, error: userError } = await supabaseAdmin.auth.getUser(token);
+    if (userError || !requester) throw new Error("Invalid Session");
 
-    // 1. JWT వెరిఫికేషన్: రిక్వెస్ట్ పంపిన అడ్మిన్ ఎవరో వెరిఫై చేయడం
-    const { data: { user: requester }, error: userError } = await supabaseClient.auth.getUser();
-    if (userError || !requester) throw new Error("Unauthorized: Invalid or Expired Token");
-
-    // 2. అడ్మిన్ పర్మిషన్ చెక్
     const { data: adminProfile } = await supabaseAdmin
       .from('profiles')
       .select('role, school_id')
       .eq('id', requester.id)
       .single();
 
-    if (adminProfile?.role !== 'super-admin' && adminProfile?.role !== 'school-admin') {
-      throw new Error("Access Denied: Insufficient Permissions");
+    if (!['super-admin', 'school-admin'].includes(adminProfile?.role)) throw new Error("Forbidden");
+
+    const body = await req.json();
+
+    // --- CASE A: BULK REGISTRATION ---
+    if (body.isBulk && Array.isArray(body.students)) {
+      const results = [];
+      for (const student of body.students) {
+        const studentEmail = student.email.toLowerCase().trim();
+        
+        const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
+          email: studentEmail,
+          password: student.password || 'SmartBadi@2026',
+          email_confirm: true,
+          user_metadata: { 
+            full_name: student.FullName || student.name, 
+            role: 'student', 
+            school_id: adminProfile.school_id 
+          }
+        });
+
+        if (!authError || authError.message.includes('already has been registered')) {
+          // ఒకవేళ Auth లో ఉండి Profile లో లేకపోయినా ఇది పని చేస్తుంది (UPSERT)
+          let targetUserId = authUser?.user?.id;
+          
+          // ఒకవేళ యూజర్ ఆల్రెడీ ఉంటే, వారి ID ని తెచ్చుకోవడం
+          if (!targetUserId) {
+             const { data: existing } = await supabaseAdmin.from('profiles').select('id').eq('email', studentEmail).single();
+             targetUserId = existing?.id;
+          }
+
+          if (targetUserId) {
+            const { error: dbError } = await supabaseAdmin.from('profiles').upsert({
+              id: targetUserId,
+              full_name: student.FullName || student.name || 'Student',
+              email: studentEmail,
+              role: 'student',
+              school_id: adminProfile.school_id,
+              roll_number: student.RollNumber || null,
+              mobile_number: student.MotherMobile || null,
+              is_active: true
+            }, { onConflict: 'id' });
+            
+            results.push({ email: studentEmail, status: dbError ? 'failed' : 'success' });
+          }
+        } else {
+          results.push({ email: studentEmail, status: 'failed', error: authError.message });
+        }
+      }
+      return new Response(JSON.stringify({ success: true, results }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    // డేటా స్వీకరించడం
-    const { email, password, profileData } = await req.json();
+    // --- CASE B: INDIVIDUAL REGISTRATION ---
+    const { email, password, profileData } = body;
+    const studentEmail = email.toLowerCase().trim();
 
-    if (!email || !password) throw new Error("Email and Password are required");
-
-    // మ్యాపింగ్ ఫిక్స్: రోల్ ని ఖచ్చితంగా సెట్ చేయడం (Default 'student' ఒకవేళ ఏమీ లేకపోతే)
-    const targetRole = profileData.role || 'student';
-
-    // 3. AUTH USER క్రియేషన్ (Auth Table)
-    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-      email: email.toLowerCase().trim(),
-      password: password,
+    const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
+      email: studentEmail,
+      password,
       email_confirm: true,
-      user_metadata: {
-        role: targetRole,
-        school_id: adminProfile.school_id, // సెక్యూరిటీ కోసం అడ్మిన్ స్కూల్ ఐడి వాడుతున్నాం
-        full_name: profileData.full_name
+      user_metadata: { 
+        full_name: profileData.full_name, 
+        role: profileData.role, 
+        school_id: adminProfile.school_id 
       }
     });
 
-    if (authError) throw authError;
+    // ఎర్రర్ వస్తే, ఆ ఈమెయిల్ తో యూజర్ ఆల్రెడీ ఉన్నాడో లేదో చెక్ చేస్తున్నాం
+    if (authError && !authError.message.includes('already has been registered')) throw authError;
 
-    // 4. DATABASE PROFILE క్రియేషన్ (Profiles Table)
-    // ఇక్కడ 'role' కాలమ్ కి మనం పంపిన targetRole ని అసైన్ చేస్తున్నాం
-    // DATABASE PROFILE క్రియేషన్ (Profiles Table)
-    const { error: profileError } = await supabaseAdmin
-      .from('profiles')
-      .upsert({
-        id: authData.user.id,
-        full_name: profileData.full_name,
-        email: email.toLowerCase().trim(),
-        role: 'student',
-        school_id: adminProfile.school_id,
-
-        employee_id: null,
-        subject_teaching: null,
-        date_of_joining: null,
-
-        dob: profileData.dob,
-        mobile_number: profileData.father_mobile, 
-        encrypted_password: password, 
-        gender: profileData.gender,
-        blood_group: profileData.blood_group,
-        address: profileData.residential_address, 
-        father_name: profileData.father_name,
-        father_mobile:profileData.father_mobile,
-        mother_name: profileData.mother_name,
-        mother_mobile: profileData.mother_mobile,
-        roll_number: profileData.roll_number,
-        current_class: profileData.current_class,
-        current_section: profileData.current_section, 
-
-        is_active: true
-      });
-    if (profileError) {
-      // ప్రొఫైల్ క్రియేషన్ ఫెయిల్ అయితే యూజర్ ని డిలీట్ చేయడం (Rollback)
-      await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
-      throw profileError;
+    let targetId = authUser?.user?.id;
+    if (!targetId) {
+        const { data: existingUser } = await supabaseAdmin.from('profiles').select('id').eq('email', studentEmail).single();
+        targetId = existingUser?.id;
     }
 
-    return new Response(
-      JSON.stringify({
-        message: `${targetRole.toUpperCase()} registered successfully`,
-        user_id: authData.user.id
-      }),
-      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    if (!targetId) throw new Error("Could not identify user for profile sync.");
 
-  } catch (error: any) {
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    // ప్రొఫైల్ సింక్ - UPSERT వాడటం వల్ల Duplicate PKEY ఎర్రర్ రాదు
+    const { error: dbError } = await supabaseAdmin.from('profiles').upsert({
+      ...profileData,
+      id: targetId,
+      email: studentEmail,
+      school_id: adminProfile.school_id,
+      is_active: true
+    }, { onConflict: 'id' });
+
+    if (dbError) throw new Error(`Profile Sync Error: ${dbError.message}`);
+
+    return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+
+  } catch (err: any) {
+    return new Response(JSON.stringify({ error: err.message }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }
 });

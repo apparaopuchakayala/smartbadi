@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
+import { smartBadiApi } from '../../services/smartBadiApi.ts';
 
 export function StaffManagement() {
   const { session, profile } = useAuth();
@@ -21,7 +22,7 @@ export function StaffManagement() {
   const [searchQuery, setSearchQuery] = useState('');
 
   const [showAddModal, setShowAddModal] = useState(false);
-  const [isSaving, setIsSaving] = useState(false); // Used for both Add and Delete loading states
+  const [isSaving, setIsSaving] = useState(false);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -86,15 +87,17 @@ export function StaffManagement() {
     if (profile?.role === 'super-admin') {
       localStorage.setItem('lastSelectedSchool', JSON.stringify(school));
     }
-    setLoading(true);
 
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('school_id', school.id)
-      .neq('role', 'super-admin');
-    setStaff(data || []);
-    setLoading(false);
+    setLoading(true);
+    try {
+      const data = await smartBadiApi.getProfiles(school.id);
+      setStaff(data.filter((p: any) => p.role !== 'super-admin'));
+    } catch (err: any) {
+      console.error("Staff Fetch Error:", err.message);
+      toast.error("Failed to fetch staff records");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleRoleChange = (role: string) => {
@@ -118,64 +121,25 @@ export function StaffManagement() {
 
   const handleAddUser = async (e: React.FormEvent) => {
     e.preventDefault();
-    const targetSchoolId = profile.role === 'super-admin'
-      ? selectedSchool?.id
-      : profile.school_id;
-
-    if (!targetSchoolId) {
-      toast.error("Security Context Missing: Institution ID not identified.");
-      return;
-    }
-
     setIsSaving(true);
-    const loadingToast = toast.loading("Verifying Identity & Synchronizing...");
-
     try {
-      const { data: { session: currentSession } } = await supabase.auth.getSession();
-      if (!currentSession) throw new Error("Authentication expired. Re-login required.");
-
-      // 2. Edge Function కాల్
-      const { data, error } = await supabase.functions.invoke('create-user', {
-        body: {
-          email: formData.email.trim().toLowerCase(),
-          password: formData.encrypted_password,
-          profileData: {
-            full_name: formData.full_name.trim(),
-            role: formData.role,
-            school_id: targetSchoolId, // Security: Scoped to current context
-            employee_id: formData.employee_id.trim() || null,
-            mobile_number: formData.mobile_number.trim() || null,
-            dob: formData.dob || null,
-            subject_teaching: formData.subject_teaching.trim() || 'General',
-            encrypted_password: formData.encrypted_password,
-            is_active: true
-          }
-        }
+      await smartBadiApi.registerStaffOrStudent({
+        email: formData.email,
+        password: formData.encrypted_password,
+        profileData: { ...formData, role: formData.role }
       });
-
-      if (error || data?.error) throw new Error(data?.error || error.message);
-
-      toast.success("STAFF RECORD REGISTERED SUCCESSFULLY", { id: loadingToast });
+      toast.success("Success!");
       setShowAddModal(false);
-
-      // 3. Atomic Refresh
-      setFormData({
-        full_name: '', email: '', encrypted_password: '', role: 'teacher',
-        employee_id: '', mobile_number: '', dob: '', subject_teaching: ''
-      });
-
-      await fetchStaff(selectedSchool || { id: targetSchoolId });
-      if (profile?.role === 'super-admin') await fetchSchools();
-
+      fetchStaff(selectedSchool);
     } catch (err: any) {
-      toast.error(err.message || "Registry Failure", { id: loadingToast });
+      toast.error(err.message);
     } finally {
       setIsSaving(false);
     }
   };
 
   const processDelete = async () => {
-    setIsSaving(true); // START LOADING
+    setIsSaving(true);
     try {
       console.log("Deleting User via Edge Function...");
       const { data, error } = await supabase.functions.invoke('delete-user', {
@@ -194,7 +158,7 @@ export function StaffManagement() {
       console.error("Delete Error:", err);
       toast.error("Failed to delete user from Auth");
     } finally {
-      setIsSaving(false); // STOP LOADING
+      setIsSaving(false);
     }
   };
 
@@ -406,7 +370,7 @@ export function StaffManagement() {
   );
 }
 
-function DirectorySection({ title, icon, list, accent, onDelete, onToggle }: any) {
+function DirectorySection({ title, icon, list, accent, onDelete }: any) {
   if (!list || list.length === 0) return null;
   return (
     <div className="space-y-6">
@@ -415,35 +379,93 @@ function DirectorySection({ title, icon, list, accent, onDelete, onToggle }: any
         <h2 className="text-[11px] font-bold uppercase tracking-[4px] text-slate-400">{title}</h2>
         <div className="flex-1 h-[1px] bg-slate-100 ml-4"></div>
       </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-        {list.map((m: any) => (
-          <div key={m.id} className={`bg-white rounded-2xl border ${accent} p-6 flex flex-col shadow-sm hover:shadow-md transition-all group relative`}>
-            <div className="flex items-start justify-between mb-6">
-              <div className="w-11 h-11 bg-slate-50 text-slate-300 rounded-lg flex items-center justify-center group-hover:text-blue-600 transition-colors">
-                {m.role === 'student' ? <GraduationCap size={20} /> : m.role === 'parent' ? <User size={20} /> : <Fingerprint size={20} />}
+        {list.map((m: any) => {
+          const isTeacher = m.role === 'teacher';
+          const isStudent = m.role === 'student';
+
+          return (
+            <div key={m.id} className={`bg-white rounded-[32px] border ${accent} p-6 flex flex-col shadow-sm hover:shadow-md transition-all group relative`}>
+
+              <div className="flex items-start justify-between mb-6">
+                {/* --- PROFILE PIC SECTION --- */}
+                <div className="relative">
+                  {m.avatar_url ? (
+                    <img
+                      src={m.avatar_url}
+                      alt={m.full_name}
+                      className="w-16 h-16 rounded-2xl object-cover border-2 border-slate-50 shadow-sm transition-transform group-hover:scale-105"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = 'none';
+                        (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
+                      }}
+                    />
+                  ) : null}
+
+                  {/* Fallback Icon */}
+                  <div className={`${m.avatar_url ? 'hidden' : ''} w-16 h-16 rounded-2xl flex items-center justify-center shadow-sm 
+    ${m.role === 'teacher' ? 'bg-blue-50 text-blue-500' : 'bg-orange-50 text-orange-500'}`}>
+                    {m.role === 'student' ? <GraduationCap size={28} /> : <User size={28} />}
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => onDelete(m)}
+                  className="p-2 text-slate-200 hover:text-red-500 transition-colors"
+                >
+                  <Trash2 size={18} />
+                </button>
               </div>
-              <button onClick={() => onDelete(m)} className="p-2 text-slate-200 hover:text-red-500 transition-colors"><Trash2 size={16} /></button>
+
+              <h3 className="text-lg font-bold text-slate-800 tracking-tight truncate">{m.full_name}</h3>
+              <p className="text-xs font-medium text-slate-400 mb-6 truncate">{m.email}</p>
+
+              <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-50 mb-6">
+                {isTeacher ? (
+                  <>
+                    <div className="space-y-0.5">
+                      <p className="text-[9px] font-bold text-slate-300 uppercase">Employee ID</p>
+                      <p className="text-[11px] font-bold text-slate-600 uppercase">{m.employee_id || '---'}</p>
+                    </div>
+                    <div className="space-y-0.5">
+                      <p className="text-[9px] font-bold text-slate-300 uppercase">Subject</p>
+                      <p className="text-[11px] font-bold text-slate-600 uppercase truncate">{m.subject_teaching || 'General'}</p>
+                    </div>
+                  </>
+                ) : isStudent ? (
+                  <>
+                    <div className="space-y-0.5">
+                      <p className="text-[9px] font-bold text-slate-300 uppercase">Student ID</p>
+                      <p className="text-[11px] font-bold text-slate-600 uppercase">{m.roll_number || m.employee_id || '---'}</p>
+                    </div>
+                    <div className="space-y-0.5">
+                      <p className="text-[9px] font-bold text-slate-300 uppercase">Class & Sec</p>
+                      <p className="text-[11px] font-bold text-slate-600 uppercase">
+                        {m.current_class ? `${m.current_class}-${m.current_section || ''}` : 'Not Set'}
+                      </p>
+                    </div>
+                  </>
+                ) : null}
+              </div>
+
+              <div className="flex gap-2 mt-auto">
+                <button className="flex-1 py-3 bg-blue-50 text-blue-600 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-blue-600 hover:text-white transition-all">
+                  Edit Profile
+                </button>
+                {isTeacher ? (
+                  <button className="flex-1 py-3 bg-slate-50 text-slate-500 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-slate-200 transition-all">
+                    Details
+                  </button>
+                ) : (
+                  <button onClick={() => onDelete(m)} className="flex-1 py-3 bg-red-50 text-red-500 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all">
+                    Delete
+                  </button>
+                )}
+              </div>
             </div>
-            <h3 className="text-base font-bold text-slate-800 tracking-tight truncate">{m.full_name}</h3>
-            <p className="text-[11px] font-medium text-slate-400 mb-6 truncate">{m.email}</p>
-            <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-50">
-              <div className="space-y-0.5">
-                <p className="text-[9px] font-bold text-slate-300 uppercase">ID No.</p>
-                <p className="text-[11px] font-bold text-slate-600 uppercase">{m.employee_id || '---'}</p>
-              </div>
-              <div className="space-y-0.5">
-                <p className="text-[9px] font-bold text-slate-300 uppercase">Assignment</p>
-                <p className="text-[11px] font-bold text-slate-600 uppercase truncate">{m.subject_teaching || 'General'}</p>
-              </div>
-            </div>
-            {m.role === 'teacher' && (
-              <div className="flex gap-2 mt-6">
-                <button onClick={() => onToggle(m.id, m.can_manage_attendance, 'can_manage_attendance')} className={`flex-1 py-2.5 rounded-lg text-[10px] font-bold border transition-all ${m.can_manage_attendance ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-400 border-slate-100 hover:border-slate-200'}`}>Attendance</button>
-                <button onClick={() => onToggle(m.id, m.can_view_results, 'can_view_results')} className={`flex-1 py-2.5 rounded-lg text-[10px] font-bold border transition-all ${m.can_view_results ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-400 border-slate-100 hover:border-slate-200'}`}>Results</button>
-              </div>
-            )}
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

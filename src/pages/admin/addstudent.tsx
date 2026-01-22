@@ -1,10 +1,11 @@
 import React, { useState, useRef } from 'react';
 import { Sidebar } from '../../components/sidebar';
-import { 
-  X, Mail, Phone, Calendar as CalendarIcon, Hash, MapPin, 
-  GraduationCap, User, Users2, Heart, UserCircle, Save, 
-  RotateCcw, Image as ImageIcon, FileUp, FileDown, AlertCircle, CheckCircle2 
+import {
+  X, Mail, Phone, Calendar as CalendarIcon, Hash, MapPin,
+  GraduationCap, User, Users2, Heart, UserCircle, Save,
+  RotateCcw, Image as ImageIcon, FileUp, FileDown, AlertCircle, CheckCircle2
 } from 'lucide-react';
+import {smartBadiApi} from '../../services/smartBadiApi.ts';
 
 interface AddStudentProps {
   onNavigate: (page: any) => void;
@@ -15,7 +16,7 @@ export function AddStudent({ onNavigate, userRole }: AddStudentProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [csvData, setCsvData] = useState<any[] | null>(null);
   const [csvError, setCsvError] = useState<string | null>(null);
-  
+
   const [formData, setFormData] = useState({
     name: '', rollNo: '', class: '', section: '', dob: '', gender: '',
     fatherName: '', fatherMobile: '', motherName: '', motherMobile: '',
@@ -28,7 +29,7 @@ export function AddStudent({ onNavigate, userRole }: AddStudentProps) {
 
   // 1. Validation for Manual Form
   const isManualFilled = formData.name && formData.rollNo && formData.email && formData.motherMobile && formData.bloodGroup;
-  
+
   // 2. Validation for CSV
   const isCsvValid = csvData !== null && csvData.length > 0;
 
@@ -57,7 +58,7 @@ export function AddStudent({ onNavigate, userRole }: AddStudentProps) {
       reader.onload = (event) => {
         const text = event.target?.result as string;
         const rows = text.split('\n').filter(row => row.trim() !== "");
-        
+
         if (rows.length < 2) {
           setCsvError("Inappropriate Data: File is empty or missing data rows.");
           return;
@@ -95,22 +96,43 @@ export function AddStudent({ onNavigate, userRole }: AddStudentProps) {
 
   const resetForm = () => {
     setFormData({
-        name: '', rollNo: '', class: '', section: '', dob: '', gender: '',
-        fatherName: '', fatherMobile: '', motherName: '', motherMobile: '',
-        bloodGroup: '', email: '', address: '',
-        admissionDate: new Date().toISOString().split('T')[0]
+      name: '', rollNo: '', class: '', section: '', dob: '', gender: '',
+      fatherName: '', fatherMobile: '', motherName: '', motherMobile: '',
+      bloodGroup: '', email: '', address: '',
+      admissionDate: new Date().toISOString().split('T')[0]
     });
     setCsvData(null);
     setCsvError(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isCsvValid) {
-      alert(`Bulk Sync: Processing ${csvData?.length} valid records to Database.`);
-    } else {
-      alert(`Individual Sync: Registering ${formData.name} to Database.`);
+    setIsSaving(true);
+    const loadId = toast.loading("Processing Registration...");
+
+    try {
+      if (isCsvValid) {
+        // Bulk Upload కోసం loop లేదా bulk API వాడాలి
+        toast.error("Bulk upload logic updating...");
+      } else {
+        // Individual Registration
+        await smartBadiApi.registerStaffOrStudent({
+          email: formData.email,
+          password: formData.encrypted_password,
+          profileData: {
+            ...formData,
+            role: 'student',
+            full_name: formData.name // Mapping name to full_name
+          }
+        });
+        toast.success("Student Registered Successfully!", { id: loadId });
+        resetForm();
+      }
+    } catch (err: any) {
+      toast.error(err.message, { id: loadId });
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -173,24 +195,24 @@ export function AddStudent({ onNavigate, userRole }: AddStudentProps) {
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <FormSection title="Academic" icon={<GraduationCap size={16} className="text-blue-500" />} borderColor="border-blue-50">
-              <Input label="Full Name *" name="name" value={formData.name} onChange={(e:any) => setFormData({...formData, name: e.target.value})} />
-              <Input label="Roll No *" name="rollNo" value={formData.rollNo} onChange={(e:any) => setFormData({...formData, rollNo: e.target.value})} />
+              <Input label="Full Name *" name="name" value={formData.name} onChange={(e: any) => setFormData({ ...formData, name: e.target.value })} />
+              <Input label="Roll No *" name="rollNo" value={formData.rollNo} onChange={(e: any) => setFormData({ ...formData, rollNo: e.target.value })} />
               <div className="grid grid-cols-2 gap-3">
-                <Select label="Class *" options={['10A', '9A']} onChange={(e:any) => setFormData({...formData, class: e.target.value})} />
-                <Select label="Section *" options={['A', 'B']} onChange={(e:any) => setFormData({...formData, section: e.target.value})} />
+                <Select label="Class *" options={['10A', '9A']} onChange={(e: any) => setFormData({ ...formData, class: e.target.value })} />
+                <Select label="Section *" options={['A', 'B']} onChange={(e: any) => setFormData({ ...formData, section: e.target.value })} />
               </div>
             </FormSection>
 
             <FormSection title="Family" icon={<UserCircle size={16} className="text-orange-500" />} borderColor="border-orange-50">
-              <Input label="Father Name *" name="fatherName" value={formData.fatherName} onChange={(e:any) => setFormData({...formData, fatherName: e.target.value})} />
-              <Input label="Mother Name *" name="motherName" value={formData.motherName} onChange={(e:any) => setFormData({...formData, motherName: e.target.value})} />
-              <Input label="Mother Mobile *" name="motherMobile" value={formData.motherMobile} onChange={(e:any) => setFormData({...formData, motherMobile: e.target.value})} />
+              <Input label="Father Name *" name="fatherName" value={formData.fatherName} onChange={(e: any) => setFormData({ ...formData, fatherName: e.target.value })} />
+              <Input label="Mother Name *" name="motherName" value={formData.motherName} onChange={(e: any) => setFormData({ ...formData, motherName: e.target.value })} />
+              <Input label="Mother Mobile *" name="motherMobile" value={formData.motherMobile} onChange={(e: any) => setFormData({ ...formData, motherMobile: e.target.value })} />
             </FormSection>
 
             <FormSection title="Health & Personal" icon={<Users2 size={16} className="text-green-500" />} borderColor="border-green-50">
-              <Input label="Email *" name="email" value={formData.email} onChange={(e:any) => setFormData({...formData, email: e.target.value})} />
-              <Select label="Blood Group *" options={['O+', 'A+', 'B+', 'AB+']} onChange={(e:any) => setFormData({...formData, bloodGroup: e.target.value})} />
-              <Input label="DOB *" type="date" name="dob" value={formData.dob} onChange={(e:any) => setFormData({...formData, dob: e.target.value})} />
+              <Input label="Email *" name="email" value={formData.email} onChange={(e: any) => setFormData({ ...formData, email: e.target.value })} />
+              <Select label="Blood Group *" options={['O+', 'A+', 'B+', 'AB+']} onChange={(e: any) => setFormData({ ...formData, bloodGroup: e.target.value })} />
+              <Input label="DOB *" type="date" name="dob" value={formData.dob} onChange={(e: any) => setFormData({ ...formData, dob: e.target.value })} />
             </FormSection>
           </div>
         </form>
@@ -200,15 +222,14 @@ export function AddStudent({ onNavigate, userRole }: AddStudentProps) {
           <button type="button" onClick={resetForm} className="px-6 py-3 text-gray-400 font-bold hover:bg-gray-100 rounded-full flex items-center gap-2 transition-all">
             <RotateCcw size={18} /> Reset
           </button>
-          <button 
-            type="submit" 
+          <button
+            type="submit"
             disabled={!canRegister}
             onClick={handleSubmit}
-            className={`px-10 py-3 rounded-full font-bold shadow-lg flex items-center gap-2 transition-all active:scale-95 ${
-              canRegister ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-blue-200' : 'bg-gray-200 text-gray-400 cursor-not-allowed shadow-none'
-            }`}
+            className={`px-10 py-3 rounded-full font-bold shadow-lg flex items-center gap-2 transition-all active:scale-95 ${canRegister ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-blue-200' : 'bg-gray-200 text-gray-400 cursor-not-allowed shadow-none'
+              }`}
           >
-             <Save size={18} /> {isCsvValid ? `Register ${csvData?.length} Bulk Students` : 'Register'}
+            <Save size={18} /> {isCsvValid ? `Register ${csvData?.length} Bulk Students` : 'Register'}
           </button>
         </div>
       </main>

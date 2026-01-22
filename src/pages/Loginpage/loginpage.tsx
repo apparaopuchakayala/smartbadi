@@ -4,7 +4,7 @@ import logo from '../../assets/smartbadi.png';
 import { supabase } from '../../services/supabaseClient';
 import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
-import {smartBadiApi} from '../../services/smartBadiApi.ts';
+import { smartBadiApi } from '../../services/smartBadiApi.ts';
 
 interface LoginPageProps {
   schoolContext: any;
@@ -30,7 +30,6 @@ export function LoginPage({
     setLoading(true);
 
     try {
-      // --- మార్పు: సెంట్రల్ ఏపీఐ ద్వారా లాగిన్ ---
       const data = await smartBadiApi.secureLogin({
         email: email.trim().toLowerCase(),
         password,
@@ -47,7 +46,9 @@ export function LoginPage({
       toast.success("Identity Verified. Welcome back!");
       onLoginSuccess();
     } catch (err: any) {
-      setErrorMsg(err.message);
+      const edgeError = err.response?.data?.error; 
+      const finalMsg = edgeError || err.message || "Login failed";
+      setErrorMsg(finalMsg);
       await supabase.auth.signOut();
     } finally {
       setLoading(false);

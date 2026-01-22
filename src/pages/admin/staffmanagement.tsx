@@ -6,7 +6,7 @@ import {
   Loader2, X, Plus, Search,
   ChevronRight, Crown, ShieldAlert,
   GraduationCap, User, Fingerprint, ChevronDown, Check,
-  School
+  School , Edit3
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
@@ -373,99 +373,105 @@ export function StaffManagement() {
 function DirectorySection({ title, icon, list, accent, onDelete }: any) {
   if (!list || list.length === 0) return null;
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
+      {/* Section Header */}
       <div className="flex items-center gap-3 px-1">
-        <span className="text-slate-300">{icon}</span>
-        <h2 className="text-[11px] font-bold uppercase tracking-[4px] text-slate-400">{title}</h2>
+        <span className="p-2 bg-slate-100 rounded-lg text-slate-500">{icon}</span>
+        <h2 className="text-[11px] font-black uppercase tracking-[4px] text-slate-400">{title}</h2>
         <div className="flex-1 h-[1px] bg-slate-100 ml-4"></div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-        {list.map((m: any) => {
-          const isTeacher = m.role === 'teacher';
-          const isStudent = m.role === 'student';
+      {/* Grid View */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+        {list.map((m: any) => (
+          <motion.div
+            layout
+            key={m.id}
+            className="relative bg-white rounded-[25px] shadow-xl overflow-hidden border border-slate-100 flex flex-col min-h-[520px] group hover:shadow-2xl transition-all duration-300"
+          >
+            {/* Card Header Design (Curved Shape) */}
+            <div className="relative h-28 w-full bg-white px-6 pt-4">
+              <div
+                className={`absolute top-0 left-0 w-full h-full ${m.role === 'school-admin' ? 'bg-blue-500' : 'bg-blue-800'}`}
+                style={{ clipPath: 'polygon(0 0, 85% 0, 0 100%)' }}
+              />
+              <div className="absolute top-4 right-6 text-right">
+                <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest leading-none">Status</p>
+                <p className="text-[10px] font-bold text-green-500 uppercase ">Active</p>
+              </div>
+            </div>
 
-          return (
-            <div key={m.id} className={`bg-white rounded-[32px] border ${accent} p-6 flex flex-col shadow-sm hover:shadow-md transition-all group relative`}>
-
-              <div className="flex items-start justify-between mb-6">
-                {/* --- PROFILE PIC SECTION --- */}
-                <div className="relative">
-                  {m.avatar_url ? (
-                    <img
-                      src={m.avatar_url}
-                      alt={m.full_name}
-                      className="w-16 h-16 rounded-2xl object-cover border-2 border-slate-50 shadow-sm transition-transform group-hover:scale-105"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).style.display = 'none';
-                        (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
-                      }}
-                    />
-                  ) : null}
-
-                  {/* Fallback Icon */}
-                  <div className={`${m.avatar_url ? 'hidden' : ''} w-16 h-16 rounded-2xl flex items-center justify-center shadow-sm 
-    ${m.role === 'teacher' ? 'bg-blue-50 text-blue-500' : 'bg-orange-50 text-orange-500'}`}>
-                    {m.role === 'student' ? <GraduationCap size={28} /> : <User size={28} />}
+            {/* Photo Section */}
+            <div className="flex justify-center -mt-12 relative z-10">
+              <div className="relative">
+                <div className="p-1 bg-white border-2 border-slate-100 rounded-[24px] shadow-lg">
+                  <div className="w-28 h-32 bg-slate-50 overflow-hidden rounded-[20px] flex items-center justify-center">
+                    {m.avatar_url ? (
+                      <img src={m.avatar_url} className="w-full h-full object-cover" alt={m.full_name} />
+                    ) : (
+                      <User className="text-slate-200" size={60} strokeWidth={1} />
+                    )}
                   </div>
                 </div>
 
-                <button
-                  onClick={() => onDelete(m)}
-                  className="p-2 text-slate-200 hover:text-red-500 transition-colors"
-                >
-                  <Trash2 size={18} />
-                </button>
-              </div>
-
-              <h3 className="text-lg font-bold text-slate-800 tracking-tight truncate">{m.full_name}</h3>
-              <p className="text-xs font-medium text-slate-400 mb-6 truncate">{m.email}</p>
-
-              <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-50 mb-6">
-                {isTeacher ? (
-                  <>
-                    <div className="space-y-0.5">
-                      <p className="text-[9px] font-bold text-slate-300 uppercase">Employee ID</p>
-                      <p className="text-[11px] font-bold text-slate-600 uppercase">{m.employee_id || '---'}</p>
-                    </div>
-                    <div className="space-y-0.5">
-                      <p className="text-[9px] font-bold text-slate-300 uppercase">Subject</p>
-                      <p className="text-[11px] font-bold text-slate-600 uppercase truncate">{m.subject_teaching || 'General'}</p>
-                    </div>
-                  </>
-                ) : isStudent ? (
-                  <>
-                    <div className="space-y-0.5">
-                      <p className="text-[9px] font-bold text-slate-300 uppercase">Student ID</p>
-                      <p className="text-[11px] font-bold text-slate-600 uppercase">{m.roll_number || m.employee_id || '---'}</p>
-                    </div>
-                    <div className="space-y-0.5">
-                      <p className="text-[9px] font-bold text-slate-300 uppercase">Class & Sec</p>
-                      <p className="text-[11px] font-bold text-slate-600 uppercase">
-                        {m.current_class ? `${m.current_class}-${m.current_section || ''}` : 'Not Set'}
-                      </p>
-                    </div>
-                  </>
-                ) : null}
-              </div>
-
-              <div className="flex gap-2 mt-auto">
-                <button className="flex-1 py-3 bg-blue-50 text-blue-600 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-blue-600 hover:text-white transition-all">
-                  Edit Profile
-                </button>
-                {isTeacher ? (
-                  <button className="flex-1 py-3 bg-slate-50 text-slate-500 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-slate-200 transition-all">
-                    Details
-                  </button>
-                ) : (
-                  <button onClick={() => onDelete(m)} className="flex-1 py-3 bg-red-50 text-red-500 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all">
-                    Delete
-                  </button>
-                )}
+                {/* Role Badge (Center Bottom) */}
+                <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 flex items-center justify-center">
+                  <div className={`px-4 py-1.5 rounded-full shadow-lg border-2 border-white min-w-[90px] text-center ${m.role === 'school-admin' ? 'bg-blue-600' : 'bg-slate-900'}`}>
+                    <span className="text-[9px] font-black text-white uppercase tracking-widest">
+                      {m.role === 'school-admin' ? 'Admin' : m.role}
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
-          );
-        })}
+
+            {/* Content Section */}
+            <div className="text-center mt-8 px-6">
+              <h2 className="text-lg font-black text-slate-900 uppercase tracking-tight truncate">{m.full_name}</h2>
+              <div className="w-12 h-[3px] bg-[#8DC63F] mx-auto mt-2 rounded-full"></div>
+              <p className="text-[10px] font-bold text-slate-400 mt-2 truncate lowercase ">{m.email}</p>
+            </div>
+
+            {/* Detailed Info Grid */}
+            <div className="mt-6 px-8 space-y-3.5 flex-1 text-left">
+              <div className="flex justify-between items-center">
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">DEP/SUB</span>
+                <span className="text-[10px] font-bold text-slate-700 uppercase">{m.subject_teaching || m.role || '---'}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">EMP ID</span>
+                <span className="text-[10px] font-bold text-slate-700 font-poppins">{m.employee_id || m.roll_number || 'N/A'}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Contact</span>
+                <span className="text-[10px] font-bold text-slate-700">{m.mobile_number || '---'}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Gender</span>
+                <span className="text-[10px] font-bold text-slate-700 uppercase">{m.gender || '---'}</span>
+              </div>
+              {m.role === 'student' && (
+                <div className="flex justify-between items-center">
+                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Class/Sec</span>
+                  <span className="text-[10px] font-bold text-blue-600 uppercase">{m.current_class}-{m.current_section || 'A'}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Permanent Action Buttons at Bottom */}
+            <div className="p-6 bg-slate-50/50 border-t border-slate-100 flex gap-3 mt-auto">
+              <button className="flex-1 flex items-center justify-center gap-2 py-3.5 bg-white text-slate-600 rounded-2xl text-[10px] font-black uppercase shadow-sm border border-slate-100 hover:bg-slate-900 hover:text-white transition-all">
+                <Edit3 size={14} /> Profile
+              </button>
+              <button
+                onClick={() => onDelete(m)}
+                className="flex-1 flex items-center justify-center gap-2 py-3.5 bg-white text-red-500 rounded-2xl text-[10px] font-black uppercase shadow-sm border border-red-50 hover:bg-red-500 hover:text-white transition-all"
+              >
+                <Trash2 size={14} /> Remove
+              </button>
+            </div>
+          </motion.div>
+        ))}
       </div>
     </div>
   );

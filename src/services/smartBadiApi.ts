@@ -2,14 +2,28 @@ import { supabase } from './supabaseClient';
 
 export const smartBadiApi = {
 
-  async secureLogin(credentials: any) {
+async secureLogin(credentials: any) {
     const { data, error } = await supabase.functions.invoke('secure-login', {
       body: credentials
     });
-    if (error || data?.error) throw new Error(data?.error || "Login Failed");
+
+    if (error) {
+      const errorContext = await error.context?.json();
+      const detailedMsg = errorContext?.error || error.message || "Login Failed";
+      
+      const customError: any = new Error(detailedMsg);
+      customError.response = { data: { error: detailedMsg } };
+      throw customError;
+    }
+
+    if (data?.error) {
+      const customError: any = new Error(data.error);
+      customError.response = { data: { error: data.error } };
+      throw customError;
+    }
+
     return data;
   },
-
   async registerStaffOrStudent(payload: any) {
     const { data: sessionData } = await supabase.auth.getSession();
     const token = sessionData.session?.access_token;

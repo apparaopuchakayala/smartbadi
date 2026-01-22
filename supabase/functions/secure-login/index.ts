@@ -26,7 +26,6 @@ serve(async (req) => {
     if (authError) throw authError;
 
     // 3. FETCH COMPREHENSIVE PROFILE
-    // ఇక్కడ school సమాచారాన్ని కూడా కలిపి తెచ్చుకుంటున్నాము
     const { data: profile, error: pError } = await supabaseAdmin
       .from('profiles')
       .select('*, schools(name)')
@@ -39,19 +38,17 @@ serve(async (req) => {
     }
 
     // 4. MULTI-TENANT VALIDATION
-    // Super-admin కాకపోతే, వారు ఎంచుకున్న స్కూల్ కి చెందినవారో లేదో చెక్ చేయడం
     if (profile.role !== 'super-admin' && profile.school_id !== school_id) {
       await supabaseAdmin.auth.admin.signOut(authData.session.access_token);
       return new Response(
         JSON.stringify({ 
-          error: `Access Denied: Dear ${profile.full_name}, your credentials belong to another institution.` 
+          error: `Access Denied: Dear ${profile.full_name}, your belongs to another institution.` 
         }), 
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     // 5. ATOMIC METADATA INJECTION
-    // ఇది మీ RLS పాలసీలు పనిచేయడానికి అత్యంత కీలకం
     const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(authData.user.id, {
       user_metadata: { 
         role: profile.role, 

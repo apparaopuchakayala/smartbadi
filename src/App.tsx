@@ -14,8 +14,10 @@ import { Menu } from 'lucide-react';
 import { LoginLoading } from './components/utilitis/LoginLoading';
 import { ClassMapping } from './pages/school-admin/classmapping';
 import { SchoolInfrastructure } from './pages/school-admin/schoolinfra';
-import {AttendanceSettings} from './pages/school-admin/attendancesettings';
-import {StaffPlanning} from './pages/school-admin/staffplanning';
+import { AttendanceSettings } from './pages/school-admin/attendancesettings';
+import { StaffPlanning } from './pages/school-admin/staffplanning';
+import { TeacherAttendance } from './pages/teacher/teacherattendance';
+import {TeacherDashboard} from './pages/teacher/teacherdashboard';
 import './styles/global.css';
 
 export default function App() {
@@ -143,10 +145,15 @@ function AppContent() {
                   <StaffPlanning schoolId={activeSchoolId} />
                 )}
 
-                  {currentPage === 'atnsettings' && (profile.role === 'school-admin') && (
+                {currentPage === 'atnsettings' && (profile.role === 'school-admin') && (
                   <AttendanceSettings schoolId={activeSchoolId} />
                 )}
-
+                {currentPage === 'attendance' && (profile.role === 'teacher') && (
+                  <TeacherAttendance schoolId={activeSchoolId} />
+                )}
+                {currentPage === 'dashboard' && (profile.role === 'teacher') && (
+                  <TeacherDashboard schoolId={activeSchoolId} />
+                )}
               </div>
             </main>
           </>

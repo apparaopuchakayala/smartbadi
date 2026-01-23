@@ -55,8 +55,8 @@ export function Sidebar({ activePage, onNavigate, userRole, isDesktopVisible, to
         ];
       case 'teacher':
         return [
-          { id: 'dashboard', label: 'My Classes', icon: LayoutDashboard },
-          { id: 'attendance', label: 'Mark Attendance', icon: Users },
+          { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+          { id: 'attendance', label: 'Attendance', icon: Users },
           { id: 'assignments', label: 'Homework', icon: BookOpen },
           { id: 'exams', label: 'Marks Entry', icon: FileSignature },
         ];

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import {
   LayoutDashboard, Building2, Users, ShieldCheck,
   GraduationCap, CalendarRange, BookOpen, FileSignature,
-  PieChart, LogOut, Menu, X, CheckCircle2, ChevronLeft, 
+  PieChart, LogOut, Menu, X, CheckCircle2, ChevronLeft,
   FileText, Split, UserCog, ChevronDown
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -22,11 +22,11 @@ interface SidebarProps {
 export function Sidebar({ activePage, onNavigate, userRole, isDesktopVisible, toggleSidebar }: SidebarProps) {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [showLogoutSuccess, setShowLogoutSuccess] = useState(false);
-  
+
   // --- SUBMENU STATES ---
   const [isCampusHovered, setIsCampusHovered] = useState(false);
   const [isCampusLocked, setIsCampusLocked] = useState(false);
-  
+
   const { profile, session } = useAuth();
   const displayName = profile?.full_name || session?.user?.user_metadata?.full_name || 'User';
 
@@ -45,13 +45,14 @@ export function Sidebar({ activePage, onNavigate, userRole, isDesktopVisible, to
       case 'school-admin':
         return [
           { id: 'admin-dashboard', label: 'Dashboard', icon: LayoutDashboard },
-          // Note: Campus Setup items (infra, school-staff, stfplanning) manual గా కింద హ్యాండిల్ చేయబడ్డాయి
           { id: 'student-hub', label: 'Student Hub', icon: GraduationCap },
           { id: 'class-mapping', label: 'Class Mapping', icon: CalendarRange },
           { id: 'assignments', label: 'Assignments', icon: BookOpen },
           { id: 'generation', label: 'Generate', icon: FileText },
           { id: 'exams', label: 'Examinations', icon: FileSignature },
           { id: 'analytics', label: 'Performance', icon: PieChart },
+          { id: 'announcements', label: 'Announcements', icon: PieChart },
+
         ];
       case 'teacher':
         return [
@@ -148,7 +149,7 @@ export function Sidebar({ activePage, onNavigate, userRole, isDesktopVisible, to
 
                 {/* --- CAMPUS SETUP DROPDOWN (AFTER DASHBOARD) --- */}
                 {userRole === 'school-admin' && item.id === 'admin-dashboard' && (
-                  <div 
+                  <div
                     className="my-1 py-1"
                     onMouseEnter={() => setIsCampusHovered(true)}
                     onMouseLeave={() => setIsCampusHovered(false)}

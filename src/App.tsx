@@ -17,7 +17,8 @@ import { SchoolInfrastructure } from './pages/school-admin/schoolinfra';
 import { AttendanceSettings } from './pages/school-admin/attendancesettings';
 import { StaffPlanning } from './pages/school-admin/staffplanning';
 import { TeacherAttendance } from './pages/teacher/teacherattendance';
-import {TeacherDashboard} from './pages/teacher/teacherdashboard';
+import { TeacherDashboard } from './pages/teacher/teacherdashboard';
+import { Announcements } from './pages/school-admin/announcements';
 import './styles/global.css';
 
 export default function App() {
@@ -147,6 +148,9 @@ function AppContent() {
 
                 {currentPage === 'atnsettings' && (profile.role === 'school-admin') && (
                   <AttendanceSettings schoolId={activeSchoolId} />
+                )}
+                {currentPage === 'announcements' && (profile.role === 'school-admin') && (
+                  <Announcements schoolId={activeSchoolId} />
                 )}
                 {currentPage === 'attendance' && (profile.role === 'teacher') && (
                   <TeacherAttendance schoolId={activeSchoolId} />

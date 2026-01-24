@@ -50,7 +50,7 @@ const StudentStatsView = ({ studentId, onBack }: { studentId: string, onBack: ()
         fetchStats();
     }, [studentId]);
 
-    if (loading) return <div className="h-full flex items-center justify-center text-xs font-bold text-slate-400">Calculations...</div>;
+    if (loading) return <div className="h-full flex items-center justify-center text-xs font-bold text-slate-400">  </div>;
 
     const percentage = stats?.percentage || 0;
     const theme = percentage >= 75 ? 'blue' : percentage >= 65 ? 'orange' : 'red';

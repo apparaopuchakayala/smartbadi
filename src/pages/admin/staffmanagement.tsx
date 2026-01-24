@@ -6,11 +6,11 @@ import {
   Loader2, X, Plus, Search,
   ChevronRight, Crown, ShieldAlert,
   GraduationCap, User, Fingerprint, ChevronDown, Check,
-  School , Edit3
+  School, Edit3
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { smartBadiApi } from '../../services/smartBadiApi.ts';
+import { smartBadiApi } from '../../services/smartBadiApi';
 
 export function StaffManagement() {
   const { session, profile } = useAuth();
@@ -26,12 +26,12 @@ export function StaffManagement() {
 
   // Form State
   const [formData, setFormData] = useState({
-    full_name: '', email: '', encrypted_password: '', role: 'teacher',
+    full_name: '', email: '', password: '', role: 'teacher',
     employee_id: '', mobile_number: '', dob: '', subject_teaching: ''
   });
 
   const [mandatoryFields, setMandatoryFields] = useState<any>({
-    full_name: true, email: true, encrypted_password: true,
+    full_name: true, email: true, password: true,
     employee_id: false, mobile_number: false, dob: false, subject_teaching: false
   });
 
@@ -104,12 +104,12 @@ export function StaffManagement() {
     setFormData({ ...formData, role });
     if (role === 'teacher') {
       setMandatoryFields({
-        full_name: true, email: true, encrypted_password: true,
+        full_name: true, email: true, password: true,
         employee_id: true, mobile_number: true, dob: true, subject_teaching: true
       });
     } else {
       setMandatoryFields({
-        full_name: true, email: true, encrypted_password: true,
+        full_name: true, email: true, password: true,
         employee_id: false, mobile_number: false, dob: false, subject_teaching: false
       });
     }
@@ -119,18 +119,38 @@ export function StaffManagement() {
     setMandatoryFields((prev: any) => ({ ...prev, [field]: !prev[field] }));
   };
 
+  // 🔥 UPDATED FUNCTION: FIX FOR SUPER ADMIN REGISTRATION 🔥
   const handleAddUser = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Safety Check: Ensure a school is selected
+    if (!selectedSchool?.id) {
+      return toast.error("Please select a school first!");
+    }
+
     setIsSaving(true);
     try {
       await smartBadiApi.registerStaffOrStudent({
         email: formData.email,
-        password: formData.encrypted_password,
-        profileData: { ...formData, role: formData.role }
+        password: formData.password,
+        profileData: {
+          ...formData,
+          role: formData.role,
+          // 👇 CRITICAL FIX: Pass the selected school ID to the backend
+          school_id: selectedSchool.id
+        }
       });
       toast.success("Success!");
       setShowAddModal(false);
+      // Refresh list
       fetchStaff(selectedSchool);
+
+      // Reset form (optional)
+      setFormData({
+        full_name: '', email: '', password: '', role: 'teacher',
+        employee_id: '', mobile_number: '', dob: '', subject_teaching: ''
+      });
+
     } catch (err: any) {
       toast.error(err.message);
     } finally {
@@ -313,7 +333,7 @@ export function StaffManagement() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-6">
                   <FormInput label="Full Name" value={formData.full_name} onChange={(v: string) => setFormData({ ...formData, full_name: v })} isReq={mandatoryFields.full_name} onToggle={() => toggleMandatory('full_name')} />
                   <FormInput label="Email Address" value={formData.email} type="email" onChange={(v: string) => setFormData({ ...formData, email: v })} isReq={mandatoryFields.email} onToggle={() => toggleMandatory('email')} />
-                  <FormInput label="Account Password" value={formData.encrypted_password} type="password" onChange={(v: string) => setFormData({ ...formData, encrypted_password: v })} isReq={mandatoryFields.encrypted_password} onToggle={() => toggleMandatory('encrypted_password')} />
+                  <FormInput label="Account Password" value={formData.password} type="password" onChange={(v: string) => setFormData({ ...formData, password: v })} isReq={mandatoryFields.password} onToggle={() => toggleMandatory('password')} />
                   <FormInput label="ID Number" value={formData.employee_id} onChange={(v: string) => setFormData({ ...formData, employee_id: v })} isReq={mandatoryFields.employee_id} onToggle={() => toggleMandatory('employee_id')} />
                   <FormInput label="Mobile" value={formData.mobile_number} onChange={(v: string) => setFormData({ ...formData, mobile_number: v })} isReq={mandatoryFields.mobile_number} onToggle={() => toggleMandatory('mobile_number')} />
                   <FormInput label="Birth Date" value={formData.dob} type="date" onChange={(v: string) => setFormData({ ...formData, dob: v })} isReq={mandatoryFields.dob} onToggle={() => toggleMandatory('dob')} />

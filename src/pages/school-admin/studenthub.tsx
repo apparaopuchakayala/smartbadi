@@ -12,6 +12,7 @@ import toast from 'react-hot-toast';
 import { SchoolLoading } from '../../components/utilitis/SchoolLoading';
 import { DeleteLoading } from '../../components/utilitis/DeleteLoading';
 import { smartBadiApi } from '../../services/smartBadiApi.ts';
+import { StudentProfileModal } from '../admin/studentprofilemodal';
 
 export function StudentHub() {
     const { profile } = useAuth();
@@ -20,10 +21,10 @@ export function StudentHub() {
     const bulkPhotoRef = useRef<HTMLInputElement>(null); // Ref for bulk photos
 
     const [students, setStudents] = useState<any[]>([]);
-    const [allocatedClasses, setAllocatedClasses] = useState<any[]>([]); 
+    const [allocatedClasses, setAllocatedClasses] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     const [hasSearched, setHasSearched] = useState(false);
-    
+
     const [selectedFilter, setSelectedFilter] = useState({ class: '', section: '' });
     const [searchQuery, setSearchQuery] = useState('');
 
@@ -33,7 +34,7 @@ export function StudentHub() {
     const [isDeleting, setIsDeleting] = useState(false);
 
     const [csvData, setCsvData] = useState<any[] | null>(null);
-    const [bulkTarget, setBulkTarget] = useState({ class: '', section: '' }); 
+    const [bulkTarget, setBulkTarget] = useState({ class: '', section: '' });
     const [fileName, setFileName] = useState<string | null>(null);
     const [selectedPhoto, setSelectedPhoto] = useState<File | null>(null);
     const [photoPreview, setPhotoPreview] = useState<string | null>(null);
@@ -86,7 +87,7 @@ export function StudentHub() {
 
             if (error) throw error;
             setStudents(data || []);
-            if(data?.length === 0) toast.error("No students found in this class");
+            if (data?.length === 0) toast.error("No students found in this class");
         } catch (err: any) {
             toast.error(err.message);
         } finally {
@@ -98,7 +99,7 @@ export function StudentHub() {
     const handleBulkPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = e.target.files;
         if (!files || files.length === 0) return;
-        
+
         // Ensure students are loaded first to match photos
         if (students.length === 0) {
             return toast.error("Please load students list first to sync photos!");
@@ -106,20 +107,20 @@ export function StudentHub() {
 
         setIsSaving(true);
         const loadId = toast.loading(`Matching and Syncing ${files.length} photos...`);
-        
+
         try {
             let successCount = 0;
             for (const file of Array.from(files)) {
                 // Get filename without extension (e.g., "101" from "101.jpg")
                 const rollNo = file.name.split('.')[0];
-                
+
                 // Match with student in current loaded list
                 const student = students.find(s => s.employee_id === rollNo || s.roll_number === rollNo);
-                
+
                 if (student) {
                     const fileExt = file.name.split('.').pop();
                     const path = `${profile.school_id}/${student.id}.${fileExt}`;
-                    
+
                     // 1. Upload to Supabase Storage
                     const { error: uploadError } = await supabase.storage
                         .from('student-photos')
@@ -129,20 +130,20 @@ export function StudentHub() {
 
                     // 2. Get Public URL
                     const { data: urlData } = supabase.storage.from('student-photos').getPublicUrl(path);
-                    
+
                     // 3. Update Profile Table
                     await supabase.from('profiles').update({ avatar_url: urlData.publicUrl }).eq('id', student.id);
-                    
+
                     successCount++;
                 }
             }
             toast.success(`${successCount} Photos Synced Successfully!`, { id: loadId });
             handleSearch(); // Refresh the grid to show new photos
-        } catch (err: any) { 
-            toast.error("Sync Failed: " + err.message, { id: loadId }); 
-        } finally { 
-            setIsSaving(false); 
-            if (bulkPhotoRef.current) bulkPhotoRef.current.value = ""; 
+        } catch (err: any) {
+            toast.error("Sync Failed: " + err.message, { id: loadId });
+        } finally {
+            setIsSaving(false);
+            if (bulkPhotoRef.current) bulkPhotoRef.current.value = "";
         }
     };
 
@@ -151,8 +152,8 @@ export function StudentHub() {
         setIsDeleting(true);
         try {
             const idsToDelete = students.map(s => s.id);
-            const { error } = await supabase.functions.invoke('delete-user', { 
-                body: { target_ids: idsToDelete } 
+            const { error } = await supabase.functions.invoke('delete-user', {
+                body: { target_ids: idsToDelete }
             });
             if (error) throw error;
             toast.success("Current view registry wiped.");
@@ -166,8 +167,8 @@ export function StudentHub() {
         if (!window.confirm("Delete student permanently?")) return;
         setIsDeleting(true);
         const { error } = await supabase.functions.invoke('delete-user', { body: { target_id: id } });
-        if (!error) { 
-            toast.success("Student Deleted"); 
+        if (!error) {
+            toast.success("Student Deleted");
             setStudents(prev => prev.filter(s => s.id !== id));
         }
         else { toast.error("Error removing student"); }
@@ -214,17 +215,17 @@ export function StudentHub() {
 
                 const cleanEmail = s.email.toLowerCase().trim();
                 const { data: res, error } = await supabase.functions.invoke('create-user', {
-                    body: { 
-                        email: cleanEmail, 
-                        password: s.password || formData.encrypted_password || 'Student@123', 
-                        profileData: { 
-                            ...s, 
-                            current_class: targetCls, 
-                            current_section: targetSec, 
-                            role: 'student', 
-                            school_id: profile.school_id, 
-                            is_active: true 
-                        } 
+                    body: {
+                        email: cleanEmail,
+                        password: s.password || formData.encrypted_password || 'Student@123',
+                        profileData: {
+                            ...s,
+                            current_class: targetCls,
+                            current_section: targetSec,
+                            role: 'student',
+                            school_id: profile.school_id,
+                            is_active: true
+                        }
                     }
                 });
                 if (error) throw error;
@@ -237,8 +238,8 @@ export function StudentHub() {
                 }
             }
             toast.success("Success: All Records Synced");
-            setShowAddModal(false); resetForm(); 
-            if(hasSearched) handleSearch();
+            setShowAddModal(false); resetForm();
+            if (hasSearched) handleSearch();
         } catch (err: any) { toast.error(err.message); }
         finally { setIsSaving(false); }
     };
@@ -287,7 +288,7 @@ export function StudentHub() {
                 <div className="flex flex-wrap items-center gap-4 w-full lg:w-auto">
                     <div className="space-y-2 flex-1 min-w-[200px]">
                         <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Class & Section</label>
-                        <select 
+                        <select
                             value={`${selectedFilter.class}|${selectedFilter.section}`}
                             onChange={e => {
                                 const [cls, sec] = e.target.value.split('|');
@@ -301,8 +302,8 @@ export function StudentHub() {
                             ))}
                         </select>
                     </div>
-                    
-                    <button 
+
+                    <button
                         onClick={handleSearch}
                         className="bg-blue-600 text-white px-8 h-[54px] mt-6 rounded-[20px] font-black uppercase text-[11px] tracking-widest shadow-xl shadow-blue-100 hover:bg-blue-700 transition-all flex items-center gap-3 active:scale-95"
                     >
@@ -311,13 +312,13 @@ export function StudentHub() {
                 </div>
 
                 <div className="flex items-center gap-4 w-full lg:w-auto justify-end">
-                     <div className="relative w-64">
+                    <div className="relative w-64">
                         <Filter className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
-                        <input 
-                            placeholder="Live filter results..." 
-                            className="w-full pl-12 pr-4 py-4 bg-slate-50/50 border-none rounded-[20px] text-xs font-bold outline-none focus:ring-2 focus:ring-blue-100" 
-                            value={searchQuery} 
-                            onChange={(e) => setSearchQuery(e.target.value)} 
+                        <input
+                            placeholder="Live filter results..."
+                            className="w-full pl-12 pr-4 py-4 bg-slate-50/50 border-none rounded-[20px] text-xs font-bold outline-none focus:ring-2 focus:ring-blue-100"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
                         />
                     </div>
                     <button onClick={() => { resetForm(); setShowAddModal(true); }} className="bg-slate-900 text-white px-8 h-[54px] rounded-[20px] text-[11px] font-black uppercase tracking-widest shadow-xl flex items-center gap-3 hover:bg-blue-600 transition-all active:scale-95">
@@ -378,7 +379,7 @@ export function StudentHub() {
                             <div className="flex-1 overflow-y-auto p-10 bg-slate-50/30">
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                                     <ToolCard icon={<DownloadCloud size={24} />} title="Download Template" step="Step 1" onClick={downloadCSVTemplate} color="blue" />
-                                    
+
                                     <div className="p-6 bg-white border border-slate-100 rounded-[35px] shadow-sm space-y-4">
                                         <div className="flex items-center gap-3"><div className="p-3 bg-blue-50 text-blue-600 rounded-2xl"><LayoutGrid size={20} /></div><span className="text-[11px] font-black uppercase text-slate-500">Step 2: Target Class</span></div>
                                         <select value={`${bulkTarget.class}|${bulkTarget.section}`} onChange={e => { const [cls, sec] = e.target.value.split('|'); setBulkTarget({ class: cls, section: sec }); }} className="w-full bg-slate-50 p-4 rounded-2xl text-[10px] font-black uppercase outline-none border-none shadow-inner">
@@ -400,11 +401,11 @@ export function StudentHub() {
                                             <span className="text-[11px] font-black uppercase text-slate-500 tracking-widest">Step 4: Sync Photos</span>
                                         </div>
                                         <input type="file" ref={bulkPhotoRef} multiple onChange={handleBulkPhotoUpload} accept="image/*" className="hidden" />
-                                        <button 
+                                        <button
                                             onClick={() => {
-                                                if(students.length === 0) return toast.error("Load a class list first!");
+                                                if (students.length === 0) return toast.error("Load a class list first!");
                                                 bulkPhotoRef.current?.click();
-                                            }} 
+                                            }}
                                             className="w-full py-4 bg-orange-500 text-white rounded-2xl text-[10px] font-black uppercase shadow-lg shadow-orange-100"
                                         >
                                             Bulk Photo Sync
@@ -442,9 +443,9 @@ export function StudentHub() {
                                                 <div className="grid grid-cols-2 gap-4">
                                                     <FormField label="DOB" type="date" value={formData.dob} onChange={(v: any) => setFormData({ ...formData, dob: v })} />
                                                     <div className="space-y-2"><label className="text-[9px] font-black text-slate-400 uppercase">Blood Group</label>
-                                                    <select value={formData.blood_group} onChange={e => setFormData({ ...formData, blood_group: e.target.value })} className="w-full bg-slate-50 rounded-2xl p-4 text-xs font-bold outline-none border-none shadow-inner">
-                                                        {['A+', 'B+', 'O+', 'AB+', 'A-', 'B-', 'O-', 'AB-'].map(b => <option key={b} value={b}>{b}</option>)}
-                                                    </select></div>
+                                                        <select value={formData.blood_group} onChange={e => setFormData({ ...formData, blood_group: e.target.value })} className="w-full bg-slate-50 rounded-2xl p-4 text-xs font-bold outline-none border-none shadow-inner">
+                                                            {['A+', 'B+', 'O+', 'AB+', 'A-', 'B-', 'O-', 'AB-'].map(b => <option key={b} value={b}>{b}</option>)}
+                                                        </select></div>
                                                 </div>
                                             </FormSection>
                                             <div className="col-span-full pt-6"><button type="submit" disabled={isSaving || !formData.current_class} className="w-full py-6 bg-slate-900 text-white rounded-[30px] font-black uppercase text-[12px] tracking-[6px] shadow-2xl active:scale-95 transition-all">Authorize Admission</button></div>
@@ -461,44 +462,10 @@ export function StudentHub() {
             {/* ... (Existing Profile sidebar logic) ... */}
             <AnimatePresence>
                 {showProfile && selectedStudent && (
-                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[500] bg-slate-900/60 backdrop-blur-xl flex justify-center" onClick={() => setShowProfile(false)}>
-                        <motion.div initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} transition={{ type: 'spring', damping: 25, stiffness: 200 }} className="w-full max-w-2xl bg-slate-50 h-screen overflow-y-auto shadow-2xl p-6 md:p-12 relative" onClick={(e) => e.stopPropagation()}>
-                            <button onClick={() => setShowProfile(false)} className="absolute top-8 right-8 p-3 bg-white rounded-full shadow-lg hover:text-red-500 transition-all z-10"><X size={24} /></button>
-                            <div className="space-y-8">
-                                <div className="bg-white rounded-[40px] p-8 border border-white shadow-xl text-center relative overflow-hidden">
-                                    <div className="absolute top-0 left-0 w-full h-24 bg-gradient-to-r from-blue-600 to-[#8DC63F]" />
-                                    <div className="relative mt-8">
-                                        <div className="w-32 h-32 rounded-[40px] border-4 border-white overflow-hidden shadow-lg mx-auto bg-slate-100">
-                                            <img src={selectedStudent.avatar_url || `https://ui-avatars.com/api/?name=${selectedStudent.full_name}`} className="w-full h-full object-cover" />
-                                        </div>
-                                    </div>
-                                    <h2 className="mt-4 text-2xl font-black text-slate-800 uppercase tracking-tighter">{selectedStudent.full_name}</h2>
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[3px]">Enrollment ID: {selectedStudent.roll_number || selectedStudent.employee_id}</p>
-                                </div>
-                                <div className="grid grid-cols-1 gap-6">
-                                    <section className="bg-white rounded-[30px] p-8 shadow-sm space-y-6">
-                                        <h4 className="flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-blue-500 border-b pb-4"><GraduationCap size={16} /> Personal Details</h4>
-                                        <div className="grid grid-cols-2 gap-6">
-                                            <DetailBox label="Current Class" value={selectedStudent.current_class} />
-                                            <DetailBox label="Section" value={selectedStudent.current_section} />
-                                            <DetailBox label="Gender" value={selectedStudent.gender} />
-                                            <DetailBox label="Blood Group" value={selectedStudent.blood_group} />
-                                            <DetailBox label="Date of Birth" value={selectedStudent.dob} />
-                                            <DetailBox label="Phone Number" value={selectedStudent.mobile_number} />
-                                        </div>
-                                    </section>
-                                    <section className="bg-white rounded-[30px] p-8 shadow-sm space-y-6">
-                                        <h4 className="flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-[#8DC63F] border-b pb-4"><UserCircle size={16} /> Guardian Information</h4>
-                                        <div className="grid grid-cols-2 gap-6">
-                                            <DetailBox label="Father's Name" value={selectedStudent.father_name} />
-                                            <DetailBox label="Mother's Name" value={selectedStudent.mother_name} />
-                                            <div className="col-span-2"><DetailBox label="Permanent Address" value={selectedStudent.address || selectedStudent.residential_address} /></div>
-                                        </div>
-                                    </section>
-                                </div>
-                            </div>
-                        </motion.div>
-                    </motion.div>
+                    <StudentProfileModal
+                        student={selectedStudent}
+                        onClose={() => setShowProfile(false)}
+                    />
                 )}
             </AnimatePresence>
 

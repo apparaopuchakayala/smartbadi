@@ -34,9 +34,26 @@ serve(async (req) => {
 
     const body = await req.json();
 
+    // --- HELPER FUNCTION: GET TARGET SCHOOL ID ---
+    // This solves your problem. 
+    // If Super Admin -> Use the ID sent from React (body.school_id or profileData.school_id)
+    // If School Admin -> Force use their own ID (Security)
+    const getTargetSchoolId = (providedId: any) => {
+        if (adminProfile.role === 'super-admin') {
+            return providedId || adminProfile.school_id;
+        }
+        return adminProfile.school_id;
+    }
+
     // --- CASE A: BULK REGISTRATION ---
     if (body.isBulk && Array.isArray(body.students)) {
       const results = [];
+      
+      // Calculate ID based on who is logged in
+      const bulkSchoolId = getTargetSchoolId(body.school_id);
+      
+      if (!bulkSchoolId) throw new Error("Target School ID missing for bulk upload.");
+
       for (const student of body.students) {
         const studentEmail = student.email.toLowerCase().trim();
         
@@ -47,15 +64,13 @@ serve(async (req) => {
           user_metadata: { 
             full_name: student.FullName || student.name, 
             role: 'student', 
-            school_id: adminProfile.school_id 
+            school_id: bulkSchoolId 
           }
         });
 
         if (!authError || authError.message.includes('already has been registered')) {
-          // ఒకవేళ Auth లో ఉండి Profile లో లేకపోయినా ఇది పని చేస్తుంది (UPSERT)
           let targetUserId = authUser?.user?.id;
           
-          // ఒకవేళ యూజర్ ఆల్రెడీ ఉంటే, వారి ID ని తెచ్చుకోవడం
           if (!targetUserId) {
              const { data: existing } = await supabaseAdmin.from('profiles').select('id').eq('email', studentEmail).single();
              targetUserId = existing?.id;
@@ -67,7 +82,7 @@ serve(async (req) => {
               full_name: student.FullName || student.name || 'Student',
               email: studentEmail,
               role: 'student',
-              school_id: adminProfile.school_id,
+              school_id: bulkSchoolId, // Uses calculated ID
               roll_number: student.RollNumber || null,
               mobile_number: student.MotherMobile || null,
               is_active: true
@@ -86,6 +101,11 @@ serve(async (req) => {
     const { email, password, profileData } = body;
     const studentEmail = email.toLowerCase().trim();
 
+    // Calculate School ID
+    const targetSchoolId = getTargetSchoolId(profileData.school_id);
+    
+    if (!targetSchoolId) throw new Error("Target School ID is missing. Please select a school first.");
+
     const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email: studentEmail,
       password,
@@ -93,11 +113,10 @@ serve(async (req) => {
       user_metadata: { 
         full_name: profileData.full_name, 
         role: profileData.role, 
-        school_id: adminProfile.school_id 
+        school_id: targetSchoolId 
       }
     });
 
-    // ఎర్రర్ వస్తే, ఆ ఈమెయిల్ తో యూజర్ ఆల్రెడీ ఉన్నాడో లేదో చెక్ చేస్తున్నాం
     if (authError && !authError.message.includes('already has been registered')) throw authError;
 
     let targetId = authUser?.user?.id;
@@ -108,19 +127,19 @@ serve(async (req) => {
 
     if (!targetId) throw new Error("Could not identify user for profile sync.");
 
-    // ప్రొఫైల్ సింక్ - UPSERT వాడటం వల్ల Duplicate PKEY ఎర్రర్ రాదు
+    // Profile Sync
     const { error: dbError } = await supabaseAdmin.from('profiles').upsert({
       ...profileData,
       id: targetId,
       email: studentEmail,
-      school_id: adminProfile.school_id,
+      school_id: targetSchoolId, 
       is_active: true
     }, { onConflict: 'id' });
 
     if (dbError) throw new Error(`Profile Sync Error: ${dbError.message}`);
 
     return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-
+    
   } catch (err: any) {
     return new Response(JSON.stringify({ error: err.message }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }

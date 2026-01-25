@@ -16,6 +16,7 @@ import {
 import { Bar, Line, Doughnut } from 'react-chartjs-2';
 import {AttendanceSettings} from './attendancesettings';
 import {AdminMarksView} from './adminmarksview';
+import {BirthdayGreetings} from "./birthdaygreetings";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, ArcElement, Title, Tooltip, Legend);
 
@@ -54,13 +55,13 @@ export function AdminDashboard() {
         <div className="space-y-8 p-2 md:p-6 text-left bg-[#F8FAFC] min-h-screen pb-20 overflow-hidden">
 
             {/* --- TOP ROW: GREETING & DYNAMIC CLOCK --- */}
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-center">
-                <div className="lg:col-span-3 bg-white p-8 rounded-[45px] shadow-sm border border-white flex flex-col md:flex-row justify-between items-center gap-6">
-                    <div className="flex items-center gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-center ">
+                <div className="lg:col-span-3 bg-white p-8 rounded-[44px] shadow-sm border border-white flex flex-col md:flex-row justify-between items-center gap-6 ">
+                    <div className="flex items-center gap-6 ">
                         <div className="w-16 h-16 bg-blue-600 rounded-3xl flex items-center justify-center text-white shadow-xl shadow-blue-100 animate-pulse">
                             <Zap size={32} fill="white" />
                         </div>
-                        <div>
+                        <div className ="">
                             <h1 className="text-3xl font-black text-slate-800 uppercase tracking-tighter leading-none">
                                 Admin <span className="text-[#8DC63F]">Hub</span>
                             </h1>
@@ -77,6 +78,7 @@ export function AdminDashboard() {
                         <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{currentTime.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</p>
                     </div>
                 </div>
+                
                 {/* <div className="bg-slate-900 rounded-[40px] p-8 text-white flex items-center justify-between shadow-2xl active:scale-95 transition-all cursor-pointer">
                     <div>
                         <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Total Revenue</p>
@@ -87,6 +89,7 @@ export function AdminDashboard() {
             </div>
             <AttendanceSettings/>
             <AdminMarksView />
+            <BirthdayGreetings/>
         </div>
     );
 }

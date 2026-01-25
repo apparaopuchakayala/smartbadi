@@ -28,7 +28,7 @@
     font-family: 'Poppins', sans-serif;
     @apply bg-[#f8fafc] text-slate-900;
     -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
+    -moz-osx-font-smoothing: grayscale; 
     overflow-x: hidden;
   }
 }

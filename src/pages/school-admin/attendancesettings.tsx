@@ -29,7 +29,7 @@
                         <h1 className="text-2xl font-black text-slate-800 uppercase tracking-tighter leading-none">
                             Attendance <span className="text-[#8DC63F]">Configuration</span>
                         </h1>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1.5">Control how teachers record presence</p>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1.5">Control how teachers record attendance</p>
                     </div>
                 </div>
 

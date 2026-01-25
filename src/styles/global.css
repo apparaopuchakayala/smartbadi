@@ -1,8 +1,67 @@
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
 
-body {
-  /* @apply bg-background text-foreground; */
-  font-family: 'Poppins', sans-serif;  /* <-- This line was added */
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 210 40% 98%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --primary: 221.2 83.2% 53.3%;
+    --radius: 1.25rem;
+  }
+
+  * {
+    /* మునుపటి ఎర్రర్ ఇక్కడే ఉంది - దాన్ని స్లేట్ కలర్ కి మార్చాను */
+    border-color: theme('colors.slate.200');
+    outline: none !important;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    font-family: 'Poppins', sans-serif;
+    @apply bg-[#f8fafc] text-slate-900;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+  }
+}
+
+@layer components {
+  .premium-card {
+    @apply bg-white border border-slate-100 shadow-sm transition-all duration-500;
+    border-radius: var(--radius);
+  }
+
+  .premium-card:hover {
+    @apply shadow-xl shadow-blue-500/5 -translate-y-1 border-blue-100;
+  }
+
+  .glass-effect {
+    @apply bg-white/80 backdrop-blur-md border border-white/20;
+  }
+
+  button {
+    @apply transition-all duration-300 active:scale-95;
+  }
+
+  input, select, textarea {
+    @apply transition-all duration-300 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500;
+  }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-slate-200 rounded-full hover:bg-slate-300 transition-colors;
 }

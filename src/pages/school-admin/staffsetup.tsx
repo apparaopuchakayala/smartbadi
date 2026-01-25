@@ -13,8 +13,8 @@ import {
 import {
     Users, Mail, Trash2, Loader2, X, Plus, Search,
     Crown, ShieldAlert, GraduationCap,
-    User, Fingerprint, Lock, Check, Building2, Calendar, BookOpen,
-    ImageIcon, UserCircle, Users2, ShieldCheck, Phone, Briefcase, IdCard, Edit3, Droplets
+    User, Lock, Building2, Calendar, BookOpen,
+    UserCircle, Users2, ShieldCheck, Phone, IdCard, Edit3, Droplets
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
@@ -37,7 +37,9 @@ export function Staffsetup() {
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [memberToDelete, setMemberToDelete] = useState<any>(null);
 
-    const [availableSubjects, setAvailableSubjects] = useState<string[]>([]);
+    // --- SUBJECT & PAPER COUNT STATES ---
+    const [globalSubjects, setGlobalSubjects] = useState<any[]>([]);
+    const [subjectPaperCount, setSubjectPaperCount] = useState<number>(0);
 
     const [formData, setFormData] = useState({
         full_name: '', email: '', password: '', role: 'teacher' as UserRole,
@@ -50,7 +52,7 @@ export function Staffsetup() {
     useEffect(() => {
         if (profile?.school_id) {
             fetchRecords();
-            fetchSubjects();
+            fetchGlobalSubjects();
         }
     }, [profile, activeTab]);
 
@@ -64,17 +66,40 @@ export function Staffsetup() {
         setLoading(false);
     };
 
-    // --- NEW: FETCH UNIQUE SUBJECTS FROM DATABASE ---
-    const fetchSubjects = async () => {
+    // --- NEW: FETCH GLOBAL SUBJECTS FROM 'subjects' MASTER TABLE ---
+    const fetchGlobalSubjects = async () => {
         const { data, error } = await supabase
             .from('class_subjects')
-            .select('subject_name')
-            .eq('school_id', profile.school_id);
+            .select('*')
+            .eq('school_id', profile.school_id)
+            .order('subject_name');
 
         if (!error && data) {
-            const uniqueSubs = Array.from(new Set(data.map(s => s.subject_name.toUpperCase())));
-            setAvailableSubjects(uniqueSubs);
+            setGlobalSubjects(data);
         }
+    };
+
+    // --- NEW: CALCULATE HOW MANY CLASSES HAVE THIS SUBJECT ---
+    const calculatePaperCount = async (subjectName: string) => {
+        if (!subjectName || subjectName === 'GENERAL') {
+            setSubjectPaperCount(0);
+            return;
+        }
+
+        const { count, error } = await supabase
+            .from('class_subjects')
+            .select('*', { count: 'exact', head: true })
+            .eq('school_id', profile.school_id)
+            .eq('subject_name', subjectName);
+
+        if (!error) {
+            setSubjectPaperCount(count || 0);
+        }
+    };
+
+    const handleSubjectChange = (val: string) => {
+        setFormData({ ...formData, subject_teaching: val });
+        calculatePaperCount(val);
     };
 
     const handleDateChange = (field: string, value: string) => {
@@ -85,15 +110,14 @@ export function Staffsetup() {
         setFormData({ ...formData, [field]: formatted });
     };
 
-    // --- ACTION: OPEN EDIT MODE ---
     const openEditModal = (member: any) => {
         setIsEditMode(true);
         setEditingMemberId(member.id);
         setFormData({ ...member, password: '' });
+        calculatePaperCount(member.subject_teaching);
         setShowAddModal(true);
     };
 
-    // --- ACTION: HANDLE ADD OR UPDATE ---
     const handleAddUser = async (e: React.FormEvent) => {
         e.preventDefault();
 
@@ -139,7 +163,6 @@ export function Staffsetup() {
                 if (updateError) throw updateError;
                 toast.success("Profile Updated Successfully", { id: loadId });
             } else {
-                // --- CREATE LOGIC: కొత్త యూజర్ రిజిస్ట్రేషన్ (Edge Function) ---
                 const { data: sessionData } = await supabase.auth.getSession();
                 const token = sessionData.session?.access_token;
 
@@ -169,6 +192,7 @@ export function Staffsetup() {
     const resetForm = () => {
         setIsEditMode(false);
         setEditingMemberId(null);
+        setSubjectPaperCount(0);
         setFormData({
             full_name: '', email: '', password: '', role: activeTab,
             employee_id: '', mobile_number: '', dob: '', subject_teaching: '',
@@ -190,6 +214,7 @@ export function Staffsetup() {
         } catch (err: any) {
             toast.error(err.message);
         } finally {
+            setLoading(false);
             setIsSaving(false);
         }
     };
@@ -223,7 +248,6 @@ export function Staffsetup() {
                 {[
                     { id: 'school-admin', label: 'Admins', icon: <Crown size={14} /> },
                     { id: 'teacher', label: 'Teachers', icon: <Users size={14} /> },
-                    // { id: 'student', label: 'Students', icon: <GraduationCap size={14} /> },
                     { id: 'parent', label: 'Parents', icon: <User size={14} /> }
                 ].map((tab) => (
                     <button
@@ -249,25 +273,16 @@ export function Staffsetup() {
                 ) : filteredList.length > 0 ? (
                     filteredList.map((m) => (
                         <motion.div layout key={m.id} className="relative bg-white rounded-[20px] shadow-xl overflow-hidden border border-slate-100 flex flex-col min-h-[520px]">
-                            {/* Card Header Design */}
                             <div className="relative h-28 w-full bg-white px-6 pt-4">
                                 <div className="absolute top-0 left-0 w-full h-full bg-blue-400" style={{ clipPath: 'polygon(0 0, 75% 0, 0 100%)' }} />
-                                <div className="absolute top-4 right-6 flex flex-col items-end">
-                                    <h4 className="text-[10px] font-black text-slate-800 uppercase tracking-tighter  leading-none"></h4>
-                                </div>
                             </div>
-
-                            {/* Photo Section */}
                             <div className="flex justify-center -mt-12 relative z-10">
                                 <div className="relative">
-                                    {/* Profile Photo */}
                                     <div className="p-1 bg-white border-2 border-slate-200 rounded-lg shadow-lg">
                                         <div className="w-28 h-32 bg-slate-50 overflow-hidden rounded-md flex items-center justify-center text-blue-200">
                                             <UserCircle size={70} strokeWidth={0.5} />
                                         </div>
                                     </div>
-
-                                    {/* --- ROUND BLUE ROLE BADGE (CENTER BOTTOM) --- */}
                                     <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 flex items-center justify-center">
                                         <div className="bg-blue-600 text-white px-4 py-1.5 rounded-full shadow-lg border-2 border-white flex items-center justify-center min-w-[80px]">
                                             <span className="text-[9px] font-black uppercase tracking-widest whitespace-nowrap">
@@ -281,17 +296,14 @@ export function Staffsetup() {
                                 <h2 className="text-lg font-black text-slate-900 uppercase tracking-tight truncate">{m.full_name}</h2>
                                 <div className="w-16 h-[2px] bg-[#8DC63F] mx-auto mt-2"></div>
                             </div>
-
                             <div className="mt-3 px-8 space-y-3 flex-1 text-left">
                                 <div className="flex justify-between items-baseline"><span className="text-[9px] font-black text-slate-800 uppercase">Dept / Sub:</span><span className="text-[10px] font-bold text-slate-600 uppercase truncate ml-2">{m.subject_teaching || m.role}</span></div>
                                 <div className="flex justify-between items-baseline"><span className="text-[9px] font-black text-slate-800 uppercase">Blood Group:</span><span className="text-[10px] font-bold text-slate-600 uppercase">{m.blood_group || 'O+'}</span></div>
-                                <div className="flex justify-between items-baseline"><span className="text-[9px] font-black text-slate-800 uppercase">Gender:</span><span className="text-[10px] font-bold text-slate-600 uppercase truncate ml-2">{m.Gender || m.gender}</span></div>
-                                <div className="flex justify-between items-baseline"><span className="text-[9px] font-black text-slate-800 uppercase">Mobile:</span><span className="text-[10px] font-bold text-slate-600 uppercase truncate ml-2">{m.mobile || m.mobile_number}</span></div>
-                                <div className="flex justify-between items-baseline"><span className="text-[9px] font-black text-slate-800 uppercase">EMP ID:</span><span className="text-[10px] font-bold text-slate-600 font-poppins">{m.employee_id || 'ID-00'}</span></div>
-                                <div className="flex justify-between items-baseline"><span className="text-[9px] font-black text-slate-800 uppercase">Date of Joining:</span><span className="text-[10px] font-bold text-slate-600 uppercase truncate ml-2">{m.date_of_joining || m.date_of_joining}</span></div>
+                                <div className="flex justify-between items-baseline"><span className="text-[9px] font-black text-slate-800 uppercase">Gender:</span><span className="text-[10px] font-bold text-slate-600 uppercase truncate ml-2">{m.gender}</span></div>
+                                <div className="flex justify-between items-baseline"><span className="text-[9px] font-black text-slate-800 uppercase">Mobile:</span><span className="text-[10px] font-bold text-slate-600 uppercase truncate ml-2">{m.mobile_number}</span></div>
+                                <div className="flex justify-between items-baseline"><span className="text-[9px] font-black text-slate-800 uppercase">EMP ID:</span><span className="text-[10px] font-bold text-slate-600">{m.employee_id || 'ID-00'}</span></div>
+                                <div className="flex justify-between items-baseline"><span className="text-[9px] font-black text-slate-800 uppercase">Joining Date:</span><span className="text-[10px] font-bold text-slate-600 uppercase truncate ml-2">{m.date_of_joining}</span></div>
                             </div>
-
-                            {/* Permanent Action Buttons at Bottom */}
                             <div className="p-6 bg-slate-50 border-t border-slate-100 flex gap-3 mt-auto">
                                 <button onClick={() => openEditModal(m)} className="flex-1 flex items-center justify-center gap-2 py-3 bg-white text-blue-600 rounded-2xl text-[10px] font-black uppercase shadow-sm border border-blue-50 hover:bg-blue-600 hover:text-white transition-all">
                                     <Edit3 size={14} /> Edit
@@ -340,20 +352,41 @@ export function Staffsetup() {
                                     <div className="bg-white p-8 rounded-[45px] shadow-sm border border-slate-50 grid grid-cols-1 md:grid-cols-3 gap-6 text-left text-sm">
                                         <FormInput label="Mobile Number" maxLength={10} value={formData.mobile_number} onChange={(v: string) => setFormData({ ...formData, mobile_number: v })} icon={<Phone size={16} />} onKeyPress={(e: any) => { if (!/[0-9]/.test(e.key)) e.preventDefault(); }} />
                                         <FormInput label="Staff/Emp ID" value={formData.employee_id} onChange={(v: string) => setFormData({ ...formData, employee_id: v })} icon={<IdCard size={16} />} onKeyPress={(e: any) => { if (!/[0-9]/.test(e.key)) e.preventDefault(); }} />
-                                        <FormSelect
-                                            label="Dept / Subject"
-                                            options={availableSubjects.length > 0 ? availableSubjects : ['GENERAL']}
-                                            value={formData.subject_teaching}
-                                            onChange={(v: string) => setFormData({ ...formData, subject_teaching: v })}
-                                            icon={<BookOpen size={16} />}
-                                        />                                    </div>
+                                        
+                                        {/* --- SUBJECT SELECTION WITH PAPER COUNT --- */}
+                                        {/* <div className="flex flex-col gap-2">
+                                            <FormSelect 
+                                                label="Dept / Subject" 
+                                                options={['GENERAL', ...globalSubjects.map(s => s.subject_name.toUpperCase())]} 
+                                                value={formData.subject_teaching} 
+                                                onChange={handleSubjectChange} 
+                                                icon={<BookOpen size={16} />} 
+                                            />
+                                            <AnimatePresence>
+                                                {subjectPaperCount > 0 && (
+                                                    <motion.div 
+                                                        initial={{ opacity: 0, y: -10 }} 
+                                                        animate={{ opacity: 1, y: 0 }}
+                                                        className="mt-2 ml-4 flex items-center gap-2"
+                                                    >
+                                                        <div className="px-3 py-1 bg-[#8DC63F]/10 border border-[#8DC63F]/20 rounded-full flex items-center gap-2">
+                                                            <span className="w-1.5 h-1.5 bg-[#8DC63F] rounded-full animate-pulse"></span>
+                                                            <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest">
+                                                                Active in {subjectPaperCount} Classes
+                                                            </span>
+                                                        </div>
+                                                    </motion.div>
+                                                )}
+                                            </AnimatePresence>
+                                        </div> */}
+                                    </div>
 
                                     <div className="bg-white p-8 rounded-[45px] shadow-sm border border-slate-50 grid grid-cols-1 md:grid-cols-2 gap-6 text-left text-sm">
                                         <FormInput label="Joining Date" placeholder="YYYY-MM-DD" maxLength={10} value={formData.date_of_joining} onChange={(v: string) => handleDateChange('date_of_joining', v)} icon={<Calendar size={16} />} />
                                         <FormSelect label="Blood Group" options={['A+', 'B+', 'O+', 'AB+', 'A-', 'B-', 'O-', 'AB-']} value={formData.blood_group} onChange={(v: string) => setFormData({ ...formData, blood_group: v })} icon={<Droplets size={16} />} />
                                     </div>
 
-                                    <button disabled={isSaving} className="w-full py-7 bg-slate-900 text-white rounded-[35px] text-[12px] font-black uppercase shadow-2xl hover:bg-blue-600 transition-all flex items-center justify-center gap-4">
+                                    <button disabled={isSaving} className="w-full py-7 bg-slate-900 text-white rounded-[35px] text-[12px] font-black uppercase shadow-2xl hover:bg-blue-600 transition-all flex items-center justify-center gap-4 active:scale-95">
                                         {isSaving ? <Loader2 className="animate-spin" size={24} /> : <>{isEditMode ? 'Update Identity' : 'Authorize Registration'} <ShieldCheck size={20} /></>}
                                     </button>
                                 </form>
@@ -363,7 +396,7 @@ export function Staffsetup() {
                 )}
             </AnimatePresence>
 
-            {/* Delete Modal */}
+            {/* Delete Confirm (Same as before) */}
             <AnimatePresence>
                 {showDeleteConfirm && (
                     <div className="fixed inset-0 z-[250] flex items-center justify-center p-4">
@@ -406,6 +439,7 @@ function FormSelect({ label, options, value, onChange, icon }: any) {
                 <div className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-500 transition-colors z-10">{icon}</div>
                 <select value={value} onChange={(e) => onChange(e.target.value)}
                     className="w-full pl-14 pr-6 py-4 bg-slate-50/50 border border-slate-100 rounded-[22px] outline-none focus:ring-4 ring-blue-500/5 focus:bg-white focus:border-blue-200 transition-all font-bold text-slate-700 text-sm appearance-none cursor-pointer relative uppercase">
+                    <option value="">SELECT SUBJECT</option>
                     {options.map((opt: any) => <option key={opt} value={opt}>{opt}</option>)}
                 </select>
             </div>

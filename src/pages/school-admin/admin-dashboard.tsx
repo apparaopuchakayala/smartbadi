@@ -15,6 +15,7 @@ import {
 } from 'chart.js';
 import { Bar, Line, Doughnut } from 'react-chartjs-2';
 import {AttendanceSettings} from './attendancesettings';
+import {AdminMarksView} from './adminmarksview';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, ArcElement, Title, Tooltip, Legend);
 
@@ -85,6 +86,7 @@ export function AdminDashboard() {
                 </div> */}
             </div>
             <AttendanceSettings/>
+            <AdminMarksView />
         </div>
     );
 }

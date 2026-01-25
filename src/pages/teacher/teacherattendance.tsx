@@ -79,7 +79,7 @@ export function TeacherAttendance() {
                 .order('full_name', { ascending: true });
 
             if (profileError) throw profileError;
-
+            
             // 2. Fetch Attendance
             const { data: existingRecords, error: attError } = await supabase
                 .from('student_attendance')

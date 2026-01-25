@@ -20,7 +20,8 @@
     "react-hot-toast": "^2.6.0",
     "react-router-dom": "^7.12.0",
     "react-to-print": "^3.2.0",
-    "whatsapp-web.js": "github:pedroslopez/whatsapp-web.js#main"
+    "whatsapp-web.js": "github:pedroslopez/whatsapp-web.js#main",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",

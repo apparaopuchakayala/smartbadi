@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Building2, Users, ShieldCheck,
   GraduationCap, CalendarRange, BookOpen, FileSignature,
   PieChart, LogOut, Menu, X, CheckCircle2, ChevronLeft,
-  FileText, Split, UserCog, ChevronDown
+  FileText, Split, UserCog, ChevronDown, Settings2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import logo from '../assets/smartbadi.png';
@@ -27,12 +27,20 @@ export function Sidebar({ activePage, onNavigate, userRole, isDesktopVisible, to
   const [isCampusHovered, setIsCampusHovered] = useState(false);
   const [isCampusLocked, setIsCampusLocked] = useState(false);
 
+  // --- EXAM MANAGEMENT SUBMENU STATES ---
+  const [isExamHovered, setIsExamHovered] = useState(false);
+  const [isExamLocked, setIsExamLocked] = useState(false);
+
   const { profile, session } = useAuth();
   const displayName = profile?.full_name || session?.user?.user_metadata?.full_name || 'User';
 
-  // కండిషన్: హోవర్ చేసినా, క్లిక్ చేసినా, లేదా లోపల ఉన్న ఏదైనా పేజీ యాక్టివ్‌గా ఉన్నా సబ్-మెనూ ఓపెన్ అవ్వాలి
+  // Campus Dropdown Condition
   const campusSubPages = ['infra', 'school-staff', 'stfplanning'];
   const isCampusOpen = isCampusHovered || isCampusLocked || campusSubPages.includes(activePage);
+
+  // Exam Management Dropdown Condition
+  const examSubPages = ['academic-config', 'marks-entry'];
+  const isExamOpen = isExamHovered || isExamLocked || examSubPages.includes(activePage);
 
   const getMenuItems = () => {
     switch (userRole) {
@@ -49,17 +57,15 @@ export function Sidebar({ activePage, onNavigate, userRole, isDesktopVisible, to
           { id: 'class-mapping', label: 'Class Mapping', icon: CalendarRange },
           { id: 'assignments', label: 'Assignments', icon: BookOpen },
           { id: 'generation', label: 'Generate', icon: FileText },
-          { id: 'exams', label: 'Examinations', icon: FileSignature },
-          { id: 'analytics', label: 'Performance', icon: PieChart },
+          { id: 'exammngmt', label: 'Exam Management', icon: FileSignature },
           { id: 'announcements', label: 'Announcements', icon: PieChart },
-
         ];
       case 'teacher':
         return [
           { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
           { id: 'attendance', label: 'Attendance', icon: Users },
           { id: 'assignments', label: 'Homework', icon: BookOpen },
-          { id: 'exams', label: 'Marks Entry', icon: FileSignature },
+          { id: 'marks-entry', label: 'Marks Entry', icon: FileSignature },
         ];
       default:
         return [{ id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard }];
@@ -134,6 +140,44 @@ export function Sidebar({ activePage, onNavigate, userRole, isDesktopVisible, to
             const isActive = activePage === item.id;
             const Icon = item.icon;
 
+            // --- RENDER EXAM MANAGEMENT DROPDOWN ---
+            if (userRole === 'school-admin' && item.id === 'exams-parent') {
+              return (
+                <div
+                  key={item.id}
+                  className="my-1 py-1"
+                  onMouseEnter={() => setIsExamHovered(true)}
+                  onMouseLeave={() => setIsExamHovered(false)}
+                >
+                  <button
+                    onClick={() => setIsExamLocked(!isExamLocked)}
+                    className={`w-full flex items-center justify-between px-6 py-4 rounded-2xl transition-all duration-300 group ${isExamOpen ? 'bg-slate-50 text-blue-600' : 'text-slate-400 hover:bg-slate-50'}`}
+                  >
+                    <div className="flex items-center gap-4">
+                      <Icon size={20} className={isExamOpen ? 'scale-110' : 'group-hover:scale-110'} />
+                      <span className="text-[11px] font-bold uppercase tracking-widest">{item.label}</span>
+                    </div>
+                    <ChevronDown size={16} className={`transition-transform duration-300 ${isExamOpen ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  <AnimatePresence>
+                    {isExamOpen && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        className="overflow-hidden pl-10 space-y-1"
+                      >
+                        <SubItem id="academic-config" label="Configure Academic" activePage={activePage} onNavigate={onNavigate} setIsMobileOpen={setIsMobileOpen} />
+                        <SubItem id="marks-entry" label="Marks Entry" activePage={activePage} onNavigate={onNavigate} setIsMobileOpen={setIsMobileOpen} />
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              );
+            }
+
+            // --- RENDER STANDARD MENU ITEM ---
             return (
               <div key={item.id}>
                 <button
@@ -147,7 +191,7 @@ export function Sidebar({ activePage, onNavigate, userRole, isDesktopVisible, to
                   <span className="text-[11px] font-bold uppercase tracking-widest">{item.label}</span>
                 </button>
 
-                {/* --- CAMPUS SETUP DROPDOWN (AFTER DASHBOARD) --- */}
+                {/* --- CAMPUS SETUP DROPDOWN --- */}
                 {userRole === 'school-admin' && item.id === 'admin-dashboard' && (
                   <div
                     className="my-1 py-1"

@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthProvider';
 import {
     CheckCircle2, Clock, AlertCircle, Search,
     Filter, Send, BookOpen, ChevronRight, Loader2,
-    ShieldCheck, Zap, Activity, BarChart3
+    ShieldCheck, Zap, Activity, BarChart3, Settings
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
@@ -68,8 +68,18 @@ export function AdminMarksView() {
     });
 
     return (
-        <div className="space-y-6">
+        <div className="bg-white rounded-[45px] p-5 shadow-sm border border-slate-200 space-y-6">
             {/* --- ANALYTICS RADAR --- */}
+            <div className="flex items-center gap-4 mb-8">
+                <div className="p-3 bg-slate-900 text-white rounded-2xl shadow-lg shadow-slate-200"><Settings size={24} /></div>
+                <div>
+                    <h1 className="text-2xl font-black text-slate-800 uppercase tracking-tighter leading-none">
+                        Marks <span className="text-[#8DC63F]">Inventory</span>
+                    </h1>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1.5">Teacher Mark Submission Status</p>
+                </div>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="bg-white p-6 rounded-[35px] shadow-sm border border-slate-100 flex items-center gap-4">
                     <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center"><BarChart3 size={20} /></div>

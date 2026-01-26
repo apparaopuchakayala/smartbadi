@@ -14,8 +14,6 @@ import { StudentProfileModal } from '../admin/studentprofilemodal';
 export function TeacherAttendance() {
     const { profile } = useAuth();
 
-    console.log(profile)
-
     // STATES
     const [myClasses, setMyClasses] = useState<any[]>([]);
     const [selectedClassId, setSelectedClassId] = useState<string>('');

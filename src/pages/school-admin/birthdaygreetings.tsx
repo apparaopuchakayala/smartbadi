@@ -89,9 +89,9 @@ export function BirthdayGreetings() {
                                             ) : <User size={20} />}
                                         </div>
                                         <div className="min-w-0">
-                                            <p className="font-black text-slate-700 text-[11px] uppercase truncate">{student.full_name}</p>
-                                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tight"> {student.role} {student.subject_teaching}</p>
-                                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tight mt-1"> {student.subject_teaching}</p>
+                                            <p className="font-black text-slate-900 text-[11px] uppercase truncate">{student.full_name}</p>
+                                            <p className="text-[9px] font-bold text-slate-5 00 uppercase tracking-tight"> {student.role}</p>
+                                            <p className="text-[9px] font-bold text-slate-500 uppercase tracking-tight mt-1"> {student.subject_teaching}</p>
                                         </div>
                                     </div>
 

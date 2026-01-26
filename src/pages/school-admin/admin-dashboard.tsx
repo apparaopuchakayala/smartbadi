@@ -3,26 +3,25 @@ import { supabase } from '../../services/supabaseClient';
 import { useAuth } from '../../context/AuthProvider';
 import {
     Users, GraduationCap, School, Activity,
-    Calendar, Bell, TrendingUp, ArrowUpRight,
-    Clock, PlusCircle, CheckSquare, Sparkles,
-    DollarSign, UserPlus, FileText, ChevronRight,
-    MapPin, Target, Zap
+    Calendar, CheckSquare, Sparkles,
+    UserPlus, ChevronRight, Target, Zap
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-import {
-    Chart as ChartJS, CategoryScale, LinearScale, BarElement,
-    Title, Tooltip, Legend, PointElement, LineElement, ArcElement
-} from 'chart.js';
-import { Bar, Line, Doughnut } from 'react-chartjs-2';
-import {AttendanceSettings} from './attendancesettings';
-import {AdminMarksView} from './adminmarksview';
-import {BirthdayGreetings} from "./birthdaygreetings";
-
-ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, ArcElement, Title, Tooltip, Legend);
+import { motion } from 'framer-motion';
+import { AttendanceSettings } from './attendancesettings';
+import { AdminMarksView } from './adminmarksview';
+import { BirthdayGreetings } from "./birthdaygreetings";
+import { HubSkeleton, CardSkeleton } from '../../components/skeletoncomp';
 
 export function AdminDashboard() {
     const { profile } = useAuth();
-    const [stats, setStats] = useState({ students: 0, teachers: 0, classes: 14, attendance: '94%' });
+    const [stats, setStats] = useState({
+        students: 0,
+        teachers: 0,
+        classes: 14,
+        attendance: '94%',
+        maleStudents: 0,
+        femaleStudents: 0
+    });
     const [loading, setLoading] = useState(true);
     const [currentTime, setCurrentTime] = useState(new Date());
 
@@ -34,116 +33,132 @@ export function AdminDashboard() {
 
     const fetchDashboardStats = async () => {
         setLoading(true);
-        const { count: sCount } = await supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('school_id', profile.school_id).eq('role', 'student');
-        const { count: tCount } = await supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('school_id', profile.school_id).eq('role', 'teacher');
-        setStats(prev => ({ ...prev, students: sCount || 0, teachers: tCount || 0 }));
-        setLoading(false);
-    };
+        try {
+            // General Student & Teacher Counts
+            const { count: sCount } = await supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('school_id', profile.school_id).eq('role', 'student');
+            const { count: tCount } = await supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('school_id', profile.school_id).eq('role', 'teacher');
 
-    // Chart Configs
-    const performanceData = {
-        labels: ['6th', '7th', '8th', '9th', '10th'],
-        datasets: [{
-            label: 'Avg Score',
-            data: [85, 78, 92, 88, 95],
-            backgroundColor: ['#3b82f6', '#8DC63F', '#f59e0b', '#8b5cf6', '#ec4899'],
-            borderRadius: 12,
-        }]
+            // Gender Breakdown
+            const { count: mCount } = await supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('school_id', profile.school_id).eq('role', 'student').eq('gender', 'Male');
+            const { count: fCount } = await supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('school_id', profile.school_id).eq('role', 'student').eq('gender', 'Female');
+
+            setStats(prev => ({
+                ...prev,
+                students: sCount || 0,
+                teachers: tCount || 0,
+                maleStudents: mCount || 0,
+                femaleStudents: fCount || 0
+            }));
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
-        <div className="space-y-8 p-2 md:p-6 text-left bg-[#F8FAFC] min-h-screen pb-20 overflow-hidden">
+        <div className="space-y-3 p-2 md:p-6 text-left bg-[#F8FAFC] min-h-screen pb-20 overflow-hidden font-poppins">
 
-            {/* --- TOP ROW: GREETING & DYNAMIC CLOCK --- */}
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-center ">
-                <div className="lg:col-span-3 bg-white p-8 rounded-[44px] shadow-sm border border-white flex flex-col md:flex-row justify-between items-center gap-6 ">
-                    <div className="flex items-center gap-6 ">
-                        <div className="w-16 h-16 bg-blue-600 rounded-3xl flex items-center justify-center text-white shadow-xl shadow-blue-100 animate-pulse">
-                            <Zap size={32} fill="white" />
+            {/* --- TOP SECTION GRID --- */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch ">
+
+                {/* 1. UNIFIED ADMIN CARD (8/12 Columns) */}
+                <div className="lg:col-span-8 bg-white p-8 rounded-[44px] shadow-sm border border-white flex flex-col gap-10">
+
+                    {/* TOP: HUB & TIME */}
+                    {loading ? <HubSkeleton /> : (
+                        <div className="flex flex-col md:flex-row justify-between items-center w-full">
+                            <div className="flex items-center gap-6">
+                                <div className="w-16 h-16 bg-blue-600 rounded-3xl flex items-center justify-center text-white shadow-xl shadow-blue-100 animate-pulse">
+                                    <Zap size={32} fill="white" />
+                                </div>
+                                <div>
+                                    <h1 className="text-3xl font-black text-slate-800 uppercase tracking-tighter leading-none">
+                                        Admin <span className="text-[#8DC63F]">Hub</span>
+                                    </h1>
+                                    <p className="text-slate-400 text-[10px] font-black uppercase tracking-[3px] mt-2 flex items-center gap-2">
+                                        <School size={14} className="text-blue-500" /> {profile?.schools?.name}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="h-12 w-[1px] bg-slate-100 hidden md:block"></div>
+
+                            <div className="text-right">
+                                <p className="text-2xl font-black text-slate-800 tracking-tighter tabular-nums leading-none">
+                                    {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                                </p>
+                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">
+                                    {currentTime.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
+                                </p>
+                            </div>
                         </div>
-                        <div className ="">
-                            <h1 className="text-3xl font-black text-slate-800 uppercase tracking-tighter leading-none">
-                                Admin <span className="text-[#8DC63F]">Hub</span>
-                            </h1>
-                            <p className="text-slate-400 text-[10px] font-black uppercase tracking-[3px] mt-2 flex items-center gap-2">
-                                <School size={14} className="text-blue-500" /> {profile?.schools?.name || "Institutional Registry"}
-                            </p>
-                        </div>
-                    </div>
-                    <div className="h-12 w-[1px] bg-slate-100 hidden md:block"></div>
-                    <div className="text-right">
-                        <p className="text-2xl font-black text-slate-800 tracking-tighter tabular-nums">
-                            {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                        </p>
-                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{currentTime.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</p>
+                    )}
+
+                    {/* BOTTOM: STATS GRID INSIDE CARD */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                        {loading ? [1, 2, 3, 4, 5].map(i => <CardSkeleton key={i} />) : (
+                            <>
+                                <StatCard icon={<Users />} title="Students" value={stats.students} color="blue" />
+                                <GenderStatCard maleCount={stats.maleStudents} femaleCount={stats.femaleStudents} />
+                                <StatCard icon={<GraduationCap />} title="Teachers" value={stats.teachers} color="green" />
+                                <StatCard icon={<Activity />} title="Attendance" value={stats.attendance} color="orange" />
+                                <StatCard icon={<Target />} title="Classes" value={stats.classes} color="purple" />
+                            </>
+                        )}
                     </div>
                 </div>
-                
-                {/* <div className="bg-slate-900 rounded-[40px] p-8 text-white flex items-center justify-between shadow-2xl active:scale-95 transition-all cursor-pointer">
-                    <div>
-                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Total Revenue</p>
-                        <p className="text-2xl font-black mt-1">₹4.28L</p>
-                    </div>
-                    <div className="p-3 bg-white/10 rounded-2xl text-[#8DC63F]"><DollarSign size={24} /></div>
-                </div> */}
+                <div className="lg:col-span-4">
+                    <BirthdayGreetings />
+                </div>
             </div>
-            <AttendanceSettings/>
+
+            <AttendanceSettings />
             <AdminMarksView />
-            <BirthdayGreetings/>
         </div>
     );
 }
 
-// --- Internal UI Components (Modular for re-use) ---
+// --- GENDER BREAKDOWN COMPONENT ---
+const GenderStatCard = ({ maleCount, femaleCount }: { maleCount: number, femaleCount: number }) => (
+    <div className="p-5 rounded-[32px] border border-slate-250 transition-all hover:shadow-md bg-slate-50/30 flex flex-col justify-between">
+        <h3 className="text-slate-400 text-[8px] font-black uppercase tracking-widest mb-3">Student Gender</h3>
+        <div className="space-y-3">
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 bg-blue-100 rounded-lg flex items-center justify-center text-blue-600">
+                        <UserPlus size={12} />
+                    </div>
+                    <span className="text-[9px] font-bold text-slate-600 uppercase">Male</span>
+                </div>
+                <span className="text-xs font-black text-slate-800">{maleCount}</span>
+            </div>
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 bg-pink-100 rounded-lg flex items-center justify-center text-pink-600">
+                        <UserPlus size={12} />
+                    </div>
+                    <span className="text-[9px] font-bold text-slate-600 uppercase">Female</span>
+                </div>
+                <span className="text-xs font-black text-slate-800">{femaleCount}</span>
+            </div>
+        </div>
+    </div>
+);
 
-const StatCard = ({ icon, title, value, trend, color }: any) => {
+// --- COMPACT STAT CARD ---
+const StatCard = ({ icon, title, value, color }: any) => {
     const theme: any = {
-        blue: "text-blue-600 bg-blue-50 border-blue-100",
-        green: "text-[#8DC63F] bg-green-50 border-green-100",
-        orange: "text-orange-600 bg-orange-50 border-orange-100",
-        purple: "text-purple-600 bg-purple-50 border-purple-100"
+        blue: "text-blue-600 bg-blue-50/50",
+        green: "text-[#8DC63F] bg-green-50/50",
+        orange: "text-orange-600 bg-orange-50/50",
+        purple: "text-purple-600 bg-purple-50/50"
     };
     return (
-        <motion.div whileHover={{ y: -5 }} className={`bg-white p-7 rounded-[40px] border shadow-sm transition-all group ${theme[color]}`}>
-            <div className="flex justify-between items-start mb-5">
-                <div className={`p-4 rounded-2xl ${theme[color]} shadow-inner`}>{React.cloneElement(icon, { size: 24 })}</div>
-                <span className="text-[9px] font-black px-2 py-1 rounded-lg uppercase tracking-tighter bg-white shadow-sm border border-slate-50 text-slate-500">{trend}</span>
+        <div className="p-5 rounded-[32px] border border-slate-250 transition-all hover:shadow-md bg-slate-50/30">
+            <div className={`w-10 h-10 rounded-2xl ${theme[color]} flex items-center justify-center mb-3 shadow-inner`}>
+                {React.cloneElement(icon, { size: 18 })}
             </div>
-            <h3 className="text-slate-400 text-[10px] font-black uppercase tracking-[2px]">{title}</h3>
-            <p className="text-3xl font-black text-slate-800 mt-1">{value}</p>
-        </motion.div>
-    );
-};
-
-const NoticeItem = ({ title, time, color }: any) => {
-    const dots: any = { blue: "bg-blue-500", green: "bg-[#8DC63F]", purple: "bg-purple-500" };
-    return (
-        <div className="flex items-center gap-4 p-4 rounded-3xl bg-slate-50 border border-transparent hover:border-slate-100 transition-all cursor-pointer">
-            <div className={`w-3 h-3 rounded-full ${dots[color]} shadow-lg`}></div>
-            <div>
-                <p className="text-xs font-bold text-slate-700">{title}</p>
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-0.5">{time}</p>
-            </div>
+            <h3 className="text-slate-400 text-[8px] font-black uppercase tracking-widest">{title}</h3>
+            <p className="text-xl font-black text-slate-800 mt-0.5">{value}</p>
         </div>
     );
 };
-
-const TaskCard = ({ title, category, urgent }: any) => (
-    <div className={`p-5 rounded-[30px] border transition-all cursor-pointer group flex items-center justify-between ${urgent ? 'bg-red-50 border-red-100' : 'bg-white border-slate-50 hover:shadow-lg'}`}>
-        <div>
-            <p className={`text-xs font-bold ${urgent ? 'text-red-700' : 'text-slate-700'}`}>{title}</p>
-            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">{category}</p>
-        </div>
-        <ChevronRight size={16} className={urgent ? 'text-red-300' : 'text-slate-200'} />
-    </div>
-);
-
-const ActivityRow = ({ user, action, time }: any) => (
-    <div className="flex items-start gap-4 border-l-2 border-slate-800 pl-6 relative">
-        <div className="absolute left-[-5px] top-1 w-2 h-2 rounded-full bg-[#8DC63F] shadow-[0_0_10px_#8DC63F]"></div>
-        <div className="flex-1">
-            <p className="text-xs font-bold text-slate-200">{action}</p>
-            <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mt-1">BY {user} • {time}</p>
-        </div>
-    </div>
-);

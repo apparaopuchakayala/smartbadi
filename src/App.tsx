@@ -12,7 +12,8 @@ import { StudentEnrollment } from './pages/school-admin/studentenrollment';
 import { AdminDashboard } from './pages/school-admin/admin-dashboard';
 import { AccessControl } from './pages/school-admin/accesscontrol';
 import { Menu, ShieldAlert } from 'lucide-react';
-import { LoginLoading } from './components/utilitis/LoginLoading';
+// Import your skeleton components
+import { HubSkeleton } from './components/common/skeletoncomp'; 
 import { AttenadnceMapping } from './pages/school-admin/attendancemapping';
 import { ClassCreation } from './pages/school-admin/classcreation';
 import { AttendanceSettings } from './pages/school-admin/attendancesettings';
@@ -85,7 +86,15 @@ function AppContent() {
     }
   }, [session, profile, loading, currentPage]);
 
-  if (loading) return <LoginLoading />;
+  // --- REPLACED SPINNER WITH HUB SKELETON ---
+  if (loading) {
+    return (
+      <div className="min-h-screen w-full flex items-center justify-center bg-[#f8fafc] p-8">
+        <HubSkeleton />
+      </div>
+    );
+  }
+
   const isAuthPage = ['landing', 'login', 'forgot-password'].includes(currentPage);
 
   return (

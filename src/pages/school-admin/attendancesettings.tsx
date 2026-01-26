@@ -2,97 +2,159 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../services/supabaseClient';
 import { Settings, CheckCircle2, Clock, CalendarDays, BookMarked } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { CardSkeleton } from '../../components/common/skeletoncomp';
+import { useAuth } from '../../context/AuthProvider';
 
-export function AttendanceSettings({ schoolId }: { schoolId: string }) {
+export function AttendanceSettings() {
     const [mode, setMode] = useState('daily');
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
+    const { profile } = useAuth();
 
+    const schoolId = profile?.school_id;
+
+    // --- EFFECT: PULL DATA FROM DB ON LOAD ---
+    useEffect(() => {
+        const fetchCurrentMode = async () => {
+            if (!schoolId) {
+                console.log("Waiting for schoolId context...");
+                return;
+            }
+
+            setLoading(true);
+            try {
+                // Fetch the current attendance mode for the specific school
+                const { data, error } = await supabase
+                    .from('schools')
+                    .select('attendance_mode')
+                    .eq('id', schoolId)
+                    .single();
+                
+                if (error) throw error;
+
+                if (data?.attendance_mode) {
+                    setMode(data.attendance_mode);
+                }
+            } catch (err: any) {
+                console.error("Error fetching institutional mode:", err.message);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchCurrentMode();
+    }, [schoolId]);
+
+    // --- FUNCTION: PUSH DATA TO DB ON CLICK ---
     const updateMode = async (newMode: string) => {
-        setLoading(true);
-        const { error } = await supabase
-            .from('schools')
-            .update({ attendance_mode: newMode })
-            .eq('id', schoolId);
+        if (loading || !schoolId) return;
+        const loadingToast = toast.loading("Updated Attendance Mode...");
+        try {
+            // Push the update to the schools table
+            const { error } = await supabase
+                .from('schools')
+                .update({ attendance_mode: newMode })
+                .eq('id', schoolId);
 
-        if (!error) {
+            if (error) throw error;
+
+            // Only update local UI state if database update was successful
             setMode(newMode);
-            toast.success(`Attendance mode set to ${newMode.replace('_', ' ')}`);
+            toast.success(`Institutional protocol updated to ${newMode.replace('_', ' ')}`, { id: loadingToast });
+        } catch (err: any) {
+            console.error("Update error:", err.message);
+            toast.error("Failed to sync protocol settings", { id: loadingToast });
         }
-        setLoading(false);
     };
 
     return (
-        <div className="bg-white p-6 md:p-8 rounded-[45px] border border-slate-100 shadow-md text-left w-full">
-            {/* Header - Made more compact */}
-            <div className="flex items-center gap-4 mb-6">
-                <div className="p-2.5 bg-slate-900 text-white rounded-2xl shadow-lg shadow-slate-200">
-                    <Settings size={20} />
+        <div className="bg-white p-5 md:p-8 rounded-[35px] md:rounded-[45px] border-2 border-slate-100 shadow-xl text-left w-full transition-all">
+            
+            {/* --- HEADER --- */}
+            <div className="flex items-center gap-4 mb-8">
+                <div className="p-3 bg-slate-900 text-white rounded-2xl shadow-lg border-2 border-white shrink-0">
+                    <Settings size={22} />
                 </div>
                 <div>
-                    <h1 className="text-xl font-black text-slate-800 uppercase tracking-tighter leading-none">
-                        Attendance <span className="text-[#8DC63F]">Configuration</span>
+                    <h1 className="text-xl md:text-2xl font-black text-slate-900 uppercase tracking-tighter leading-none">
+                        Attendance <span className="text-blue-700">Protocol</span>
                     </h1>
-                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">
-                        Control how teachers record attendance
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[2px] mt-1.5">
+                        Define academic tracking method for this institution
                     </p>
                 </div>
             </div>
 
-            {/* Grid Container */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <ModeCard
-                    active={mode === 'daily'}
-                    icon={<CalendarDays size={20} />}
-                    title="Daily Mode"
-                    desc="Once per day (Morning)."
-                    onClick={() => updateMode('daily')}
-                />
-                <ModeCard
-                    active={mode === 'twice'}
-                    icon={<Clock size={20} />}
-                    title="Twice Daily"
-                    desc="Morning and Afternoon."
-                    onClick={() => updateMode('twice')}
-                />
-                <ModeCard
-                    active={mode === 'subject_wise'}
-                    icon={<BookMarked size={20} />}
-                    title="Subject Wise"
-                    desc="Every period by teacher."
-                    onClick={() => updateMode('subject_wise')}
-                />
+            {/* --- PROTOCOL GRID: Responsive Horizontal Scroll on Mobile --- */}
+            <div className="flex md:grid md:grid-cols-3 gap-4 overflow-x-auto pb-4 md:pb-0 no-scrollbar">
+                {loading ? (
+                    // Show 3 skeletons to match the 3 mode options while fetching
+                    [1, 2, 3].map(i => (
+                        <div key={i} className="min-w-[280px] md:min-w-0 flex-1">
+                            <CardSkeleton />
+                        </div>
+                    ))
+                ) : (
+                    <>
+                        <ModeCard
+                            active={mode === 'daily'}
+                            icon={<CalendarDays size={22} />}
+                            title="Daily Mode"
+                            desc="Standard single check-in (Morning Session)."
+                            onClick={() => updateMode('daily')}
+                        />
+                        <ModeCard
+                            active={mode === 'twice'}
+                            icon={<Clock size={22} />}
+                            title="Twice Daily"
+                            desc="Two-point verification (AM and PM Sessions)."
+                            onClick={() => updateMode('twice')}
+                        />
+                        <ModeCard
+                            active={mode === 'subject_wise'}
+                            icon={<BookMarked size={22} />}
+                            title="Subject Wise"
+                            desc="Granular tracking recorded for every period."
+                            onClick={() => updateMode('subject_wise')}
+                        />
+                    </>
+                )}
             </div>
         </div>
     );
 }
 
+// --- SUB-COMPONENT: MODE CARD (Responsive Optimized) ---
 function ModeCard({ active, icon, title, desc, onClick }: any) {
     return (
         <button
             onClick={onClick}
-            // CHANGED: flex-row instead of flex-col to place icon next to text
-            className={`p-4 rounded-[30px] border-2 transition-all text-left flex flex-row items-center gap-4 h-full ${
+            className={`p-5 md:p-6 rounded-[30px] border-4 transition-all text-left flex flex-row items-center gap-5 h-full min-w-[280px] md:min-w-0 flex-1 relative overflow-hidden group ${
                 active 
-                ? 'border-blue-600 bg-blue-50/30' 
-                : 'border-slate-50 bg-slate-50/50 hover:border-slate-200'
+                ? 'border-blue-600 bg-white shadow-2xl shadow-blue-100 scale-[1.02]' 
+                : 'border-slate-50 bg-slate-50/50 hover:border-slate-200 hover:bg-white'
             }`}
         >
+            {/* Background Visual Accent */}
+            {active && <div className="absolute top-0 right-0 w-16 h-16 bg-blue-600/5 rounded-bl-[40px] -mr-4 -mt-4 transition-transform group-hover:scale-110" />}
+
             {/* Icon Container */}
-            <div className={`shrink-0 ${active ? 'text-blue-600' : 'text-slate-400'}`}>
+            <div className={`p-3 rounded-2xl shrink-0 transition-colors ${active ? 'bg-blue-600 text-white shadow-lg shadow-blue-100' : 'bg-white text-slate-400 border border-slate-100'}`}>
                 {icon}
             </div>
 
             {/* Text Content */}
-            <div className="flex-1 min-w-0">
+            <div className="flex-1 min-w-0 relative z-10">
                 <div className="flex items-center justify-between gap-2">
-                    <h4 className="font-black text-slate-800 text-[11px] md:text-xs uppercase truncate">
+                    <h4 className={`font-black uppercase tracking-tight text-xs md:text-sm truncate ${active ? 'text-slate-900' : 'text-slate-600'}`}>
                         {title}
                     </h4>
                     {active && (
-                        <CheckCircle2 size={14} className="text-blue-600 shrink-0" />
+                        <div className="bg-blue-600 rounded-full p-0.5 shrink-0">
+                            <CheckCircle2 size={12} className="text-white" />
+                        </div>
                     )}
                 </div>
-                <p className="text-[10px] font-medium text-slate-400 mt-0.5 leading-tight line-clamp-2">
+                <p className={`text-[10px] md:text-[11px] font-bold mt-1 leading-snug line-clamp-2 uppercase tracking-tight ${active ? 'text-blue-700/70' : 'text-slate-400'}`}>
                     {desc}
                 </p>
             </div>

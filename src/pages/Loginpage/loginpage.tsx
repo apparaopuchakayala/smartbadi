@@ -5,6 +5,7 @@ import { supabase } from '../../services/supabaseClient';
 import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import { smartBadiApi } from '../../services/smartBadiApi.ts';
+import { LoginFormSkeleton } from '../../components/common/skeletoncomp'; // Import skeleton
 
 interface LoginPageProps {
   schoolContext: any;
@@ -23,6 +24,10 @@ export function LoginPage({
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // --- SKELETON TRIGGER ---
+  // If schoolContext is missing (e.g. storage retrieval delay), show skeleton
+  if (!schoolContext) return <LoginFormSkeleton />;
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -70,11 +75,11 @@ export function LoginPage({
       </div>
 
       <div className="text-center mb-10">
-        <h1 className="text-2xl font-black text-gray-800 tracking-tight">Welcome To</h1>
-        <div className="mt-2 inline-flex items-center gap-2 px-3 py-1 bg-blue-50 rounded-full">
+        <h1 className="text-2xl font-black text-gray-800 tracking-tight leading-none uppercase">Welcome back</h1>
+        <div className="mt-3 inline-flex items-center gap-2 px-3 py-1 bg-blue-50 rounded-full border border-blue-100">
           <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse" />
-          <p className="text-blue-600 text-[11px] font-bold uppercase tracking-wider">
-            {schoolContext?.name || "Select Institution First"}
+          <p className="text-blue-700 text-[10px] font-black uppercase tracking-wider">
+            {schoolContext?.name}
           </p>
         </div>
       </div>
@@ -85,10 +90,10 @@ export function LoginPage({
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95 }}
-            className="mb-6 p-4 bg-red-50 border border-red-100 rounded-2xl flex items-start gap-3"
+            className="mb-6 p-4 bg-red-50 border-2 border-red-100 rounded-2xl flex items-start gap-3 shadow-sm shadow-red-50"
           >
             <ShieldAlert className="text-red-500 shrink-0" size={18} />
-            <p className="text-[11px] font-bold text-red-600 leading-relaxed uppercase tracking-tight">
+            <p className="text-[10px] font-black text-red-600 leading-relaxed uppercase tracking-tight">
               {errorMsg}
             </p>
           </motion.div>
@@ -97,32 +102,32 @@ export function LoginPage({
 
       <form onSubmit={handleLogin} className="space-y-5">
         <div className="space-y-1">
-          <label className="text-[10px] font-bold text-gray-400 uppercase ml-4 tracking-widest">Email Address</label>
-          <div className="relative">
-            <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+          <label className="text-[10px] font-black text-slate-400 uppercase ml-4 tracking-widest">Email</label>
+          <div className="relative group">
+            <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-600 transition-colors" size={18} />
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
               disabled={loading}
-              className="w-full pl-12 pr-4 py-4 bg-gray-50 border-2 border-transparent rounded-2xl focus:border-blue-400 focus:bg-white outline-none transition-all font-medium text-gray-700 disabled:opacity-50"
-              placeholder="admin@school.com"
+              className="w-full pl-12 pr-4 py-4 bg-slate-50 border-2 border-transparent rounded-2xl focus:border-blue-600 focus:bg-white outline-none transition-all font-bold text-slate-800 disabled:opacity-50 text-sm"
+              placeholder="e.g. admin@school.com"
             />
           </div>
         </div>
 
         <div className="space-y-1">
-          <label className="text-[10px] font-bold text-gray-400 uppercase ml-4 tracking-widest">password</label>
-          <div className="relative">
-            <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+          <label className="text-[10px] font-black text-slate-400 uppercase ml-4 tracking-widest">Secure Password</label>
+          <div className="relative group">
+            <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-600 transition-colors" size={18} />
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
               disabled={loading}
-              className="w-full pl-12 pr-4 py-4 bg-gray-50 border-2 border-transparent rounded-2xl focus:border-blue-400 focus:bg-white outline-none transition-all font-medium text-gray-700 disabled:opacity-50"
+              className="w-full pl-12 pr-4 py-4 bg-slate-50 border-2 border-transparent rounded-2xl focus:border-blue-600 focus:bg-white outline-none transition-all font-bold text-slate-800 disabled:opacity-50 text-sm"
               placeholder="••••••••"
             />
           </div>
@@ -132,21 +137,21 @@ export function LoginPage({
           <button
             type="button"
             onClick={onSwitchToForgotPassword}
-            className="text-[10px] font-bold text-blue-500 hover:text-blue-700 uppercase tracking-widest"
+            className="text-[10px] font-black text-blue-600 hover:text-slate-900 uppercase tracking-widest transition-colors"
           >
-            Forgot password?
+            forgot password?
           </button>
         </div>
 
         <button
           type="submit"
           disabled={loading}
-          className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 shadow-xl shadow-blue-100 transition-all flex items-center justify-center gap-2 active:scale-95 disabled:opacity-70 disabled:active:scale-100"
+          className="w-full py-4 md:py-5 bg-blue-700 text-white rounded-2xl font-black uppercase text-xs tracking-[2px] hover:bg-slate-900 shadow-2xl shadow-blue-100 transition-all flex items-center justify-center gap-3 active:scale-95 disabled:opacity-70 disabled:active:scale-100"
         >
           {loading ? (
             <>
               <Loader2 className="animate-spin" size={20} />
-              <span className="animate-pulse">Verifying Security...</span>
+              <span className="animate-pulse">Validating Identity...</span>
             </>
           ) : 'Verify & Enter'}
         </button>

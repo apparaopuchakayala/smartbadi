@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import logo from '../../assets/smartbadi.png'; 
 import { supabase } from '../../services/supabaseClient';
-import { Search, ArrowRight, Loader2, AlertCircle, Building2, CheckCircle2 } from 'lucide-react';
+import { Search, ArrowRight, AlertCircle, Building2, CheckCircle2 } from 'lucide-react';
+import { SchoolItemSkeleton } from '../../components/common/skeletoncomp'; // Import the new skeleton
 import toast from 'react-hot-toast';
 
 export function SchoolSelector({ onSchoolSelect }: { onSchoolSelect: (school: any) => void }) {
@@ -17,7 +18,6 @@ export function SchoolSelector({ onSchoolSelect }: { onSchoolSelect: (school: an
         setLoading(true);
         const { data, error: err } = await supabase
           .from('schools')
-          // .select('id, name, location, school_code') 
           .select('*')
           .order('name');
 
@@ -34,8 +34,6 @@ export function SchoolSelector({ onSchoolSelect }: { onSchoolSelect: (school: an
     fetchSchools();
   }, []);
 
-  // --- LOGIC UPDATE: STRICT PREFIX MATCH ---
-  // We use .startsWith() so "M" only shows "Millennium...", not "American..."
   const filtered = searchQuery.trim().length > 0
     ? schools.filter(s => 
         s.name?.toLowerCase().startsWith(searchQuery.toLowerCase().trim())
@@ -46,8 +44,7 @@ export function SchoolSelector({ onSchoolSelect }: { onSchoolSelect: (school: an
     <div className="bg-white rounded-[40px] shadow-2xl p-8 w-full max-w-lg border border-blue-50 text-center animate-in fade-in duration-500">
       <img src={logo} alt="SmartBadi" className="h-20 mx-auto mb-6 object-contain" />
       <h1 className="text-2xl font-bold text-gray-800">Find Your Institution</h1>
-      <p className="text-gray-400 text-xs mt-2"></p>
-
+      
       {error && (
         <div className="mt-4 p-3 bg-red-50 text-red-600 text-xs rounded-xl flex gap-2 items-center justify-center">
           <AlertCircle size={16} />{error}
@@ -60,7 +57,7 @@ export function SchoolSelector({ onSchoolSelect }: { onSchoolSelect: (school: an
         <input
           type="text"
           placeholder="e.g. M for Millennium..."
-          className="w-full pl-12 pr-4 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-blue-400 outline-none transition-all shadow-sm font-medium"
+          className="w-full pl-12 pr-4 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-blue-400 outline-none transition-all shadow-sm font-medium text-slate-800"
           value={searchQuery}
           onChange={(e) => {
             setSearchQuery(e.target.value);
@@ -74,23 +71,22 @@ export function SchoolSelector({ onSchoolSelect }: { onSchoolSelect: (school: an
       <div className="min-h-[100px] max-h-[300px] overflow-y-auto mb-6 space-y-2 custom-scrollbar pr-2">
         
         {loading ? (
-          <div className="py-8 flex flex-col items-center gap-2">
-            <Loader2 className="animate-spin text-blue-500" />
-            <span className="text-xs text-slate-400 font-bold uppercase">Preparing Database...</span>
+          // --- SKELETON LOADING STATE ---
+          <div className="space-y-2">
+            {[...Array(4)].map((_, i) => (
+              <SchoolItemSkeleton key={i} />
+            ))}
           </div>
         ) : searchQuery.length === 0 ? (
-          // STATE: SEARCH IS EMPTY
           <div className="py-8 flex flex-col items-center justify-center text-slate-300 gap-3">
              <Search size={32} strokeWidth={1.5} />
              <p className="text-xs font-bold uppercase tracking-widest">Type starting institution name to search</p>
           </div>
         ) : filtered.length === 0 ? (
-          // STATE: NO RESULTS FOUND
           <div className="py-8 text-center">
              <p className="text-gray-400 text-sm italic">No schools starting with "{searchQuery}"</p>
           </div>
         ) : (
-          // STATE: SHOW RESULTS
           filtered.map(s => (
             <button
               key={s.id}

@@ -10,6 +10,7 @@ import { motion } from 'framer-motion';
 import { AttendanceSettings } from './attendancesettings';
 import { AdminMarksView } from './adminmarksview';
 import { BirthdayGreetings } from "./birthdaygreetings";
+// Import skeletons
 import { HubSkeleton, CardSkeleton } from '../../components/common/skeletoncomp';
 
 export function AdminDashboard() {
@@ -34,11 +35,8 @@ export function AdminDashboard() {
     const fetchDashboardStats = async () => {
         setLoading(true);
         try {
-            // General Student & Teacher Counts
             const { count: sCount } = await supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('school_id', profile.school_id).eq('role', 'student');
             const { count: tCount } = await supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('school_id', profile.school_id).eq('role', 'teacher');
-
-            // Gender Breakdown
             const { count: mCount } = await supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('school_id', profile.school_id).eq('role', 'student').eq('gender', 'Male');
             const { count: fCount } = await supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('school_id', profile.school_id).eq('role', 'student').eq('gender', 'Female');
 
@@ -58,16 +56,18 @@ export function AdminDashboard() {
         <div className="space-y-3 p-2 md:p-6 text-left bg-[#F8FAFC] min-h-screen pb-20 overflow-hidden font-poppins">
 
             {/* --- TOP SECTION GRID --- */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch ">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
 
-                {/* 1. UNIFIED ADMIN CARD (8/12 Columns) */}
+                {/* 1. UNIFIED ADMIN CARD */}
                 <div className="lg:col-span-8 bg-white p-8 rounded-[44px] shadow-sm border border-white flex flex-col gap-10">
 
-                    {/* TOP: HUB & TIME */}
-                    {loading ? <HubSkeleton /> : (
-                        <div className="flex flex-col md:flex-row justify-between items-center w-full">
+                    {/* TOP: HUB & TIME - Integrated Skeleton */}
+                    {loading ? (
+                        <HubSkeleton />
+                    ) : (
+                        <div className="flex flex-col md:flex-row justify-between items-center w-full animate-in fade-in duration-500">
                             <div className="flex items-center gap-6">
-                                <div className="w-16 h-16 bg-blue-600 rounded-3xl flex items-center justify-center text-white shadow-xl shadow-blue-100 animate-pulse">
+                                <div className="w-16 h-16 bg-blue-600 rounded-3xl flex items-center justify-center text-white shadow-xl shadow-blue-100">
                                     <Zap size={32} fill="white" />
                                 </div>
                                 <div>
@@ -93,9 +93,12 @@ export function AdminDashboard() {
                         </div>
                     )}
 
-                    {/* BOTTOM: STATS GRID INSIDE CARD */}
+                    {/* BOTTOM: STATS GRID - Integrated Skeleton */}
                     <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                        {loading ? [1, 2, 3, 4, 5].map(i => <CardSkeleton key={i} />) : (
+                        {loading ? (
+                            // Showing 5 skeletons to match the 5 stat cards
+                            [1, 2, 3, 4, 5].map(i => <CardSkeleton key={i} />)
+                        ) : (
                             <>
                                 <StatCard icon={<Users />} title="Students" value={stats.students} color="blue" />
                                 <GenderStatCard maleCount={stats.maleStudents} femaleCount={stats.femaleStudents} />
@@ -106,6 +109,7 @@ export function AdminDashboard() {
                         )}
                     </div>
                 </div>
+
                 <div className="lg:col-span-4">
                     <BirthdayGreetings />
                 </div>
@@ -117,7 +121,7 @@ export function AdminDashboard() {
     );
 }
 
-// --- GENDER BREAKDOWN COMPONENT ---
+// --- GENDER BREAKDOWN COMPONENT (Funcionality Maintained) ---
 const GenderStatCard = ({ maleCount, femaleCount }: { maleCount: number, femaleCount: number }) => (
     <div className="p-5 rounded-[32px] border border-slate-250 transition-all hover:shadow-md bg-slate-50/30 flex flex-col justify-between">
         <h3 className="text-slate-400 text-[8px] font-black uppercase tracking-widest mb-3">Student Gender</h3>
@@ -144,7 +148,7 @@ const GenderStatCard = ({ maleCount, femaleCount }: { maleCount: number, femaleC
     </div>
 );
 
-// --- COMPACT STAT CARD ---
+// --- COMPACT STAT CARD (Functionality Maintained) ---
 const StatCard = ({ icon, title, value, color }: any) => {
     const theme: any = {
         blue: "text-blue-600 bg-blue-50/50",

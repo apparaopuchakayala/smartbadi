@@ -18,7 +18,7 @@ export function SchoolSelector({ onSchoolSelect }: { onSchoolSelect: (school: an
         setLoading(true);
         const { data, error: err } = await supabase
           .from('schools')
-          .select('*')
+          .select('id,name')
           .order('name');
 
         if (err) throw err;

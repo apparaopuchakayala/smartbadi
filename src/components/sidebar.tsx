@@ -2,12 +2,10 @@ import { useState, useEffect } from 'react';
 import {
   LayoutDashboard, Building2, Users, ShieldCheck,
   GraduationCap, CalendarRange, BookOpen, FileSignature,
-  PieChart, LogOut, ChevronLeft, Split, ChevronDown,
-  CheckCircle2, Menu, X
+  PieChart, LogOut, ChevronLeft, Split, ChevronDown, Menu, X , Bell
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import logo from '../assets/smartbadi.png';
-import { supabase } from '../services/supabaseClient';
 import { useAuth } from '../context/AuthProvider';
 
 interface SidebarProps {
@@ -16,31 +14,24 @@ interface SidebarProps {
   userRole: string;
   isDesktopVisible: boolean;
   toggleSidebar: () => void;
+  onLogout?: () => void; // New Prop
 }
 
-export function Sidebar({ activePage, onNavigate, userRole, isDesktopVisible, toggleSidebar }: SidebarProps) {
+export function Sidebar({ activePage, onNavigate, userRole, isDesktopVisible, toggleSidebar, onLogout }: SidebarProps) {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
-  const [showLogoutSuccess, setShowLogoutSuccess] = useState(false);
+  const { profile } = useAuth();
 
-  // Submenu page groups
   const campusSubPages = ['infra', 'school-staff', 'stfplanning'];
-  const studentSubPages = ['student-list', 'student-enrollment']; // Ensure this matches your Enrollment ID
+  const studentSubPages = ['student-list', 'student-enrollment'];
 
-  // DROPDOWN STATES
   const [isCampusHovered, setIsCampusHovered] = useState(false);
   const [isCampusLocked, setIsCampusLocked] = useState(false);
-  
   const [isStudentHovered, setIsStudentHovered] = useState(false);
   const [isStudentLocked, setIsStudentLocked] = useState(false);
 
-  const { profile } = useAuth();
-  const displayName = profile?.full_name || 'User';
-
-  // Determine if a section should be open (either hovered OR locked because of active page)
   const isCampusOpen = isCampusHovered || isCampusLocked || campusSubPages.includes(activePage);
   const isStudentOpen = isStudentHovered || isStudentLocked || studentSubPages.includes(activePage);
 
-  // Synchronize locked state with active page
   useEffect(() => {
     if (campusSubPages.includes(activePage)) setIsCampusLocked(true);
     if (studentSubPages.includes(activePage)) setIsStudentLocked(true);
@@ -52,53 +43,41 @@ export function Sidebar({ activePage, onNavigate, userRole, isDesktopVisible, to
   };
 
   const getMenuItems = () => {
-    switch (userRole) {
-      case 'super-admin':
-        return [
-          { id: 'manage-schools', label: 'Global Schools', icon: Building2 },
-          { id: 'student-list', label: 'Student List', icon: GraduationCap },
-          { id: 'global-staff', label: 'Global Staff', icon: Users },
-          { id: 'settings', label: 'System Settings', icon: ShieldCheck },
-        ];
-      case 'school-admin':
-        return [
-          { id: 'admin-dashboard', label: 'Dashboard', icon: LayoutDashboard },
-          { id: 'access-cntrl', label: 'Access Control', icon: ShieldCheck },
-          { id: 'attendance-mapping', label: 'Attendance Mapping', icon: CalendarRange },
-          { id: 'exammngmt', label: 'Exam Management', icon: FileSignature },
-          { id: 'announcements', label: 'Announcements', icon: PieChart },
-        ];
-      case 'teacher':
-        return [
-          { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, perm: 'dashboard' },
-          { id: 'student-list', label: 'Student List', icon: GraduationCap, perm: 'studentlist' },
-          { id: 'attendance', label: 'Attendance', icon: Users, perm: 'attendance' },
-          { id: 'marks-entry', label: 'Marks Entry', icon: FileSignature, perm: 'marks' },
-          { id: 'assignments', label: 'Homework', icon: BookOpen, perm: 'assignments' },
-        ].filter(item => userRole === 'school-admin' || profile?.permissions?.[item.perm]);
-      default:
-        return [{ id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard }];
-    }
-  };
+    const items = {
+      'super-admin': [
+        { id: 'manage-schools', label: 'Global Schools', icon: Building2 },
+        { id: 'student-list', label: 'Student List', icon: GraduationCap },
+        { id: 'global-staff', label: 'Global Staff', icon: Users },
+        { id: 'settings', label: 'System Settings', icon: ShieldCheck },
+      ],
+      'school-admin': [
+        { id: 'admin-dashboard', label: 'Dashboard', icon: LayoutDashboard },
+        { id: 'access-cntrl', label: 'Access Control', icon: ShieldCheck },
+        { id: 'attendance-mapping', label: 'Attendance Mapping', icon: CalendarRange },
+        { id: 'exammngmt', label: 'Exam Management', icon: FileSignature },
+        { id: 'announcement', label: 'Announcement', icon: Bell },
 
-  const handleLogout = async () => {
-    setShowLogoutSuccess(true);
-    setTimeout(async () => {
-      await supabase.auth.signOut();
-      localStorage.clear();
-      onNavigate('landing');
-      setShowLogoutSuccess(false);
-    }, 800);
+      ],
+      'teacher': [
+        { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, perm: 'dashboard' },
+        { id: 'student-list', label: 'Student List', icon: GraduationCap, perm: 'studentlist' },
+        { id: 'attendance', label: 'Attendance', icon: Users, perm: 'attendance' },
+        { id: 'marks-entry', label: 'Marks Entry', icon: FileSignature, perm: 'marks' },
+      ]
+    };
+    return items[userRole as keyof typeof items] || [];
   };
 
   return (
     <>
+      {/* MOBILE TRIGGER */}
       {!isMobileOpen && (
         <button onClick={() => setIsMobileOpen(true)} className="md:hidden fixed top-4 left-4 z-50 p-3 bg-white shadow-xl rounded-2xl text-blue-600 border border-blue-50">
           <Menu size={24} />
         </button>
       )}
 
+      {/* MOBILE OVERLAY */}
       <AnimatePresence>
         {isMobileOpen && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsMobileOpen(false)} className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60] md:hidden" />
@@ -109,41 +88,52 @@ export function Sidebar({ activePage, onNavigate, userRole, isDesktopVisible, to
         ${isMobileOpen ? 'w-72 translate-x-0' : '-translate-x-full md:translate-x-0'} 
         ${!isDesktopVisible ? 'md:w-0 md:opacity-0 overflow-hidden' : 'md:w-72'}`}>
 
+        {/* LOGO & TOGGLE */}
         <div className="p-6 flex items-center justify-center relative">
           <img src={logo} alt="SmartBadi" className="h-12 object-contain" />
-          <button onClick={() => window.innerWidth < 768 ? setIsMobileOpen(false) : toggleSidebar()} className="absolute right-4 p-2 text-slate-400 hover:text-blue-600 hover:bg-slate-50 rounded-xl">
+          <button onClick={() => window.innerWidth < 768 ? setIsMobileOpen(false) : toggleSidebar()} className="absolute right-4 p-2 text-slate-400 hover:text-blue-600 rounded-xl transition-all">
             <span className="md:hidden"><X size={20} /></span>
-            <span className="hidden md:block"><ChevronLeft size={20} /></span>
+            <span className="hidden md:block"><ChevronLeft size={20} className={!isDesktopVisible ? 'rotate-180' : ''} /></span>
           </button>
         </div>
 
+        {/* RESTORED PROFILE CARD SECTION */}
         <div className="px-6 mb-6">
-          <div className="bg-slate-50 p-5 rounded-[28px] border border-slate-100 text-center">
-            <p className="text-[9px] font-black text-slate-400 uppercase tracking-[2px] mb-1">{profile?.schools?.name || 'INSTITUTION'}</p>
-            <h3 className="text-sm font-black text-slate-800 truncate uppercase tracking-tight">{displayName}</h3>
+          <div className="bg-slate-50 p-5 rounded-[28px] border border-slate-100 text-center shadow-inner">
+            <p className="text-[9px] font-black text-slate-400 uppercase tracking-[2px] mb-1">
+              {profile?.schools?.name || 'INSTITUTION'}
+            </p>
+            <h3 className="text-sm font-black text-slate-800 truncate uppercase tracking-tight">
+              {profile?.full_name || 'User'}
+            </h3>
             <span className="inline-block mt-3 px-3 py-1 bg-blue-600 text-white rounded-full text-[8px] font-black uppercase shadow-sm">
               {userRole?.replace('-', ' ')}
             </span>
           </div>
         </div>
 
-        <nav className="flex-1 px-4 space-y-1 overflow-y-auto custom-scrollbar">
+        {/* NAVIGATION */}
+        <nav className="flex-1 px-4 space-y-1 overflow-y-auto no-scrollbar custom-scrollbar">
           {getMenuItems().map((item, index) => (
             <div key={item.id}>
-              <button onClick={() => navigate(item.id)} className={`w-full flex items-center gap-4 px-6 py-4 rounded-2xl transition-all font-black uppercase text-[10px] tracking-widest ${activePage === item.id ? 'bg-blue-600 text-white shadow-xl' : 'text-slate-500 hover:bg-slate-50'}`}>
+              {/* Main Menu Item */}
+              <button
+                onClick={() => navigate(item.id)}
+                className={`w-full flex items-center gap-4 px-6 py-4 rounded-2xl transition-all font-black uppercase text-[10px] tracking-widest ${activePage === item.id ? 'bg-blue-600 text-white shadow-xl scale-[1.02]' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'}`}
+              >
                 <item.icon size={18} /> {item.label}
               </button>
 
-              {/* CAMPUS SETUP WITH HOVER restored */}
+              {/* CAMPUS SETUP DROPDOWN (ONLY FOR SCHOOL ADMIN) */}
               {userRole === 'school-admin' && index === 0 && (
                 <div className="mt-1" onMouseEnter={() => setIsCampusHovered(true)} onMouseLeave={() => setIsCampusHovered(false)}>
-                  <button onClick={() => setIsCampusLocked(!isCampusLocked)} className={`w-full flex items-center justify-between px-6 py-4 rounded-2xl transition-all uppercase text-[10px] font-black tracking-widest ${isCampusOpen ? 'bg-blue-50 text-blue-700' : 'text-slate-500 hover:bg-slate-50'}`}>
+                  <button onClick={() => setIsCampusLocked(!isCampusLocked)} className={`w-full flex items-center justify-between px-6 py-4 rounded-2xl transition-all uppercase text-[10px] font-black tracking-widest ${isCampusOpen ? 'bg-blue-50 text-blue-700' : 'text-slate-500'}`}>
                     <div className="flex items-center gap-4"><Split size={18} /> Campus Setup</div>
                     <ChevronDown size={14} className={`transition-transform duration-300 ${isCampusOpen ? 'rotate-180' : ''}`} />
                   </button>
                   <AnimatePresence>
                     {isCampusOpen && (
-                      <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="space-y-1 mt-1 overflow-hidden border-l-2 border-slate-100 ml-8">
+                      <motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }} className=" space-y-1 mt-1 overflow-hidden border-l-2 border-slate-100 ml-8">
                         <SubItem id="infra" label="Class Creation" activePage={activePage} onNavigate={navigate} />
                         <SubItem id="school-staff" label="Staff Creation" activePage={activePage} onNavigate={navigate} />
                         <SubItem id="stfplanning" label="Staff Planning" activePage={activePage} onNavigate={navigate} />
@@ -153,16 +143,16 @@ export function Sidebar({ activePage, onNavigate, userRole, isDesktopVisible, to
                 </div>
               )}
 
-              {/* STUDENTS WITH HOVER restored */}
+              {/* STUDENTS DROPDOWN (ONLY FOR SCHOOL ADMIN) */}
               {userRole === 'school-admin' && item.id === 'access-cntrl' && (
                 <div className="mt-1" onMouseEnter={() => setIsStudentHovered(true)} onMouseLeave={() => setIsStudentHovered(false)}>
-                  <button onClick={() => setIsStudentLocked(!isStudentLocked)} className={`w-full flex items-center justify-between px-6 py-4 rounded-2xl transition-all uppercase text-[10px] font-black tracking-widest ${isStudentOpen ? 'bg-blue-50 text-blue-700' : 'text-slate-500 hover:bg-slate-50'}`}>
+                  <button onClick={() => setIsStudentLocked(!isStudentLocked)} className={`w-full flex items-center justify-between px-6 py-4 rounded-2xl transition-all uppercase text-[10px] font-black tracking-widest ${isStudentOpen ? 'bg-blue-50 text-blue-700' : 'text-slate-500'}`}>
                     <div className="flex items-center gap-4"><GraduationCap size={18} /> Students</div>
                     <ChevronDown size={14} className={`transition-transform duration-300 ${isStudentOpen ? 'rotate-180' : ''}`} />
                   </button>
                   <AnimatePresence>
                     {isStudentOpen && (
-                      <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="space-y-1 mt-1 overflow-hidden border-l-2 border-slate-100 ml-8">
+                      <motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }} className=" space-y-1 mt-1 overflow-hidden border-l-2 border-slate-100 ml-8">
                         <SubItem id="student-list" label="Student List" activePage={activePage} onNavigate={navigate} />
                         <SubItem id="student-hub" label="Student Enrollment" activePage={activePage} onNavigate={navigate} />
                       </motion.div>
@@ -174,8 +164,9 @@ export function Sidebar({ activePage, onNavigate, userRole, isDesktopVisible, to
           ))}
         </nav>
 
-        <div className="p-4 mt-auto border-t border-slate-100 bg-slate-50/30">
-          <button onClick={handleLogout} className="w-full flex items-center justify-center gap-3 px-6 py-4 text-red-500 hover:bg-red-50 rounded-2xl transition-all font-black text-[11px] uppercase tracking-[2px]">
+        {/* SIGN OUT */}
+        <div className="p-4 mt-auto border-t border-slate-100">
+          <button onClick={onLogout} className="w-full flex items-center justify-center gap-3 px-6 py-4 text-red-500 hover:bg-red-50 rounded-2xl transition-all font-black text-[11px] uppercase tracking-[2px] active:scale-95">
             <LogOut size={18} /> Sign Out
           </button>
         </div>
@@ -187,7 +178,10 @@ export function Sidebar({ activePage, onNavigate, userRole, isDesktopVisible, to
 function SubItem({ id, label, activePage, onNavigate }: { id: string, label: string, activePage: string, onNavigate: (id: string) => void }) {
   const isActive = activePage === id;
   return (
-    <button onClick={() => onNavigate(id)} className={`w-full text-left py-3 px-4 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all flex items-center gap-3 ${isActive ? 'bg-blue-50 text-blue-700' : 'text-slate-400 hover:text-slate-600'}`}>
+    <button
+      onClick={() => onNavigate(id)}
+      className={`w-full text-left py-3 px-4 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all flex items-center gap-3 ${isActive ? 'bg-blue-50 text-blue-700' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'}`}
+    >
       <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${isActive ? 'bg-blue-600 shadow-[0_0_8px_rgba(37,99,235,0.5)]' : 'bg-slate-300'}`} />
       {label}
     </button>

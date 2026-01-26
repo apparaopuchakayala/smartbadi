@@ -7,7 +7,10 @@ const app = express();
 app.use(cors()); 
 app.use(express.json());
 
-// 1. Initialize WhatsApp Client
+// Helper function to prevent "Detached Frame" by slowing down the execution
+const delay = ms => new Promise(res => setTimeout(res, ms));
+
+// 1. Initialize WhatsApp Client with stability arguments
 const client = new Client({
     authStrategy: new LocalAuth(),
     puppeteer: {
@@ -19,8 +22,13 @@ const client = new Client({
             '--disable-accelerated-2d-canvas',
             '--no-first-run',
             '--no-zygote',
-            '--disable-gpu'
-        ]
+            '--disable-gpu',
+            '--disable-software-rasterizer',
+            '--disable-extensions',
+            // Added to prevent frame detachment during long loops
+            '--disable-features=IsolateOrigins,site-per-process' 
+        ],
+        handleSIGINT: false,
     },
     webVersionCache: {
         type: "remote",
@@ -47,17 +55,22 @@ client.initialize();
 //  FEATURE 1: ABSENT NOTIFICATION (Attendance Page)
 // =================================================================
 app.post('/send-absent', async (req, res) => {
-    const { students } = req.body;
+    // Safety Check: Is the bot actually ready?
+    if (!client.info || !client.info.wid) {
+        return res.status(503).json({ error: "WhatsApp Bot is not ready yet." });
+    }
 
+    const { students } = req.body;
+    console.log(students)
     if (!students || students.length === 0) {
         return res.status(400).json({ error: "No students provided" });
     }
 
     const senderName = students[0].school_name || "School Administration";
-
     console.log(`\n--- Absent Alerts: Processing ${students.length} students ---`);
     
-    res.json({ success: true, message: "Processing started..." });
+    // Return immediately to frontend to avoid timeout
+    res.json({ success: true, message: "Broadcast processing started..." });
 
     let sentCount = 0;
 
@@ -77,9 +90,11 @@ app.post('/send-absent', async (req, res) => {
 
         try {
             await client.sendMessage(chatId, message);
-            console.log(`✅ [${index + 1}/${students.length}] Absent Alert sent to ${name}`);
+            console.log(`✅ [${index + 1}/${students.length}] Alert sent to ${name}`);
             sentCount++;
-            // ZERO DELAY: No waiting here
+            
+            // CRITICAL: Mandatory 3-second delay to keep the frame stable
+            await delay(10); 
         } catch (error) {
             console.error(`💥 Failed to send to ${name}:`, error.message);
         }
@@ -87,41 +102,41 @@ app.post('/send-absent', async (req, res) => {
     console.log(`--- Absent Batch Complete. Sent: ${sentCount} ---`);
 });
 
-
 // =================================================================
 //  FEATURE 2: BROADCAST / CUSTOM MESSAGE (Communications Page)
 // =================================================================
 app.post('/send-custom', async (req, res) => {
-    const { students, messageBody, schoolName } = req.body;
+    if (!client.info || !client.info.wid) {
+        return res.status(503).json({ error: "WhatsApp Bot is not ready yet." });
+    }
 
+    const { students, messageBody, schoolName } = req.body;
     if (!students || students.length === 0) {
         return res.status(400).json({ error: "No students provided" });
     }
 
     const sender = schoolName || "School Admin";
-    console.log(`\n--- Custom Broadcast from ${sender}: ${students.length} recipients ---`);
-    
-    res.json({ success: true, message: "Broadcast started..." });
+    res.json({ success: true, message: "Custom broadcast started..." });
 
     let sentCount = 0;
 
     for (const [index, student] of students.entries()) {
         const { name, mobile } = student;
-
         if (!mobile || mobile.length < 10) continue;
 
         let digitsOnly = mobile.replace(/\D/g, '');
         let finalNumber = digitsOnly.length > 10 ? '91' + digitsOnly.slice(-10) : '91' + digitsOnly;
         const chatId = `${finalNumber}@c.us`;
 
-        // NEW ATTRACTIVE TEMPLATE
         const finalMessage = `🔔 *NOTICE - ${sender}* 🔔\n\nDear Parent of *${name}*,\n\n${messageBody}\n\nRegards,\n*Principal*\n🏛️ ${sender}`;
 
         try {
             await client.sendMessage(chatId, finalMessage);
             console.log(`✅ [${index + 1}/${students.length}] Broadcast sent to ${name}`);
             sentCount++;
-            // ZERO DELAY: No waiting here
+            
+            // Mandatory 3-second delay between broadcast messages
+            await delay(10); 
         } catch (error) {
             console.error(`💥 Failed broadcast to: ${name}`);
         }
@@ -129,7 +144,6 @@ app.post('/send-custom', async (req, res) => {
     console.log(`--- Broadcast Complete. Sent: ${sentCount} ---`);
 });
 
-// Start Server
 const PORT = 3001;
 app.listen(PORT, () => {
     console.log(`🚀 Bot Server running on http://localhost:${PORT}`);

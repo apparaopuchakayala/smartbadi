@@ -15,10 +15,7 @@ export function AttendanceSettings() {
     // --- EFFECT: PULL DATA FROM DB ON LOAD ---
     useEffect(() => {
         const fetchCurrentMode = async () => {
-            if (!schoolId) {
-                console.log("Waiting for schoolId context...");
-                return;
-            }
+            if (!schoolId) return;
 
             setLoading(true);
             try {
@@ -26,13 +23,13 @@ export function AttendanceSettings() {
                 const { data, error } = await supabase
                     .from('schools')
                     .select('attendance_mode')
-                    .eq('id', schoolId)
-                    .single();
-                
+                    .eq('id', schoolId);
+
                 if (error) throw error;
 
-                if (data?.attendance_mode) {
-                    setMode(data.attendance_mode);
+                // Handle array-based response from Supabase
+                if (data && data.length > 0) {
+                    setMode(data[0].attendance_mode);
                 }
             } catch (err: any) {
                 console.error("Error fetching institutional mode:", err.message);
@@ -46,29 +43,39 @@ export function AttendanceSettings() {
 
     // --- FUNCTION: PUSH DATA TO DB ON CLICK ---
     const updateMode = async (newMode: string) => {
+
+        // const { data: { session } } = await supabase.auth.getSession();
+        // console.log("JWT DATA:", JSON.parse(atob(session?.access_token.split('.')[1] || "")));
+
         if (loading || !schoolId) return;
-        const loadingToast = toast.loading("Updated Attendance Mode...");
+
+        const loadingToast = toast.loading("Updating Attendance Protocol...");
         try {
-            // Push the update to the schools table
-            const { error } = await supabase
+            // Push update and use .select() to verify result
+            const { data, error } = await supabase
                 .from('schools')
                 .update({ attendance_mode: newMode })
-                .eq('id', schoolId);
+                .eq('id', schoolId)
+                .select();
 
             if (error) throw error;
 
-            // Only update local UI state if database update was successful
-            setMode(newMode);
-            toast.success(`Institutional protocol updated to ${newMode.replace('_', ' ')}`, { id: loadingToast });
+            // Confirm that the row was actually found and updated
+            if (data && data.length > 0) {
+                setMode(data[0].attendance_mode);
+                toast.success(`Protocol updated to ${newMode.replace('_', ' ')}`, { id: loadingToast });
+            } else {
+                throw new Error("No rows matched. Check RLS policies.");
+            }
         } catch (err: any) {
             console.error("Update error:", err.message);
-            toast.error("Failed to sync protocol settings", { id: loadingToast });
+            toast.error(err.message || "Failed to sync protocol settings", { id: loadingToast });
         }
     };
 
     return (
         <div className="bg-white p-5 md:p-8 rounded-[35px] md:rounded-[45px] border-2 border-slate-100 shadow-xl text-left w-full transition-all">
-            
+
             {/* --- HEADER --- */}
             <div className="flex items-center gap-4 mb-8">
                 <div className="p-3 bg-slate-900 text-white rounded-2xl shadow-lg border-2 border-white shrink-0">
@@ -84,10 +91,9 @@ export function AttendanceSettings() {
                 </div>
             </div>
 
-            {/* --- PROTOCOL GRID: Responsive Horizontal Scroll on Mobile --- */}
+            {/* --- PROTOCOL GRID --- */}
             <div className="flex md:grid md:grid-cols-3 gap-4 overflow-x-auto pb-4 md:pb-0 no-scrollbar">
                 {loading ? (
-                    // Show 3 skeletons to match the 3 mode options while fetching
                     [1, 2, 3].map(i => (
                         <div key={i} className="min-w-[280px] md:min-w-0 flex-1">
                             <CardSkeleton />
@@ -99,21 +105,21 @@ export function AttendanceSettings() {
                             active={mode === 'daily'}
                             icon={<CalendarDays size={22} />}
                             title="Daily Mode"
-                            desc="Standard single check-in (Morning Session)."
+                            desc="Take attendance once a day (Morning)."
                             onClick={() => updateMode('daily')}
                         />
                         <ModeCard
                             active={mode === 'twice'}
                             icon={<Clock size={22} />}
                             title="Twice Daily"
-                            desc="Two-point verification (AM and PM Sessions)."
+                            desc="Take attendance twice daily (Morning - Evening)."
                             onClick={() => updateMode('twice')}
                         />
                         <ModeCard
                             active={mode === 'subject_wise'}
                             icon={<BookMarked size={22} />}
                             title="Subject Wise"
-                            desc="Granular tracking recorded for every period."
+                            desc="Take attendance subject-wise for each period."
                             onClick={() => updateMode('subject_wise')}
                         />
                     </>
@@ -123,26 +129,21 @@ export function AttendanceSettings() {
     );
 }
 
-// --- SUB-COMPONENT: MODE CARD (Responsive Optimized) ---
 function ModeCard({ active, icon, title, desc, onClick }: any) {
     return (
         <button
             onClick={onClick}
-            className={`p-5 md:p-6 rounded-[30px] border-4 transition-all text-left flex flex-row items-center gap-5 h-full min-w-[280px] md:min-w-0 flex-1 relative overflow-hidden group ${
-                active 
-                ? 'border-blue-600 bg-white shadow-2xl shadow-blue-100 scale-[1.02]' 
-                : 'border-slate-50 bg-slate-50/50 hover:border-slate-200 hover:bg-white'
-            }`}
+            className={`p-5 md:p-6 rounded-[30px] border-4 transition-all text-left flex flex-row items-center gap-5 h-full min-w-[280px] md:min-w-0 flex-1 relative overflow-hidden group ${active
+                    ? 'border-blue-600 bg-white shadow-2xl shadow-blue-100 scale-[1.02]'
+                    : 'border-slate-50 bg-slate-50/50 hover:border-slate-200 hover:bg-white'
+                }`}
         >
-            {/* Background Visual Accent */}
             {active && <div className="absolute top-0 right-0 w-16 h-16 bg-blue-600/5 rounded-bl-[40px] -mr-4 -mt-4 transition-transform group-hover:scale-110" />}
 
-            {/* Icon Container */}
             <div className={`p-3 rounded-2xl shrink-0 transition-colors ${active ? 'bg-blue-600 text-white shadow-lg shadow-blue-100' : 'bg-white text-slate-400 border border-slate-100'}`}>
                 {icon}
             </div>
 
-            {/* Text Content */}
             <div className="flex-1 min-w-0 relative z-10">
                 <div className="flex items-center justify-between gap-2">
                     <h4 className={`font-black uppercase tracking-tight text-xs md:text-sm truncate ${active ? 'text-slate-900' : 'text-slate-600'}`}>
@@ -154,7 +155,7 @@ function ModeCard({ active, icon, title, desc, onClick }: any) {
                         </div>
                     )}
                 </div>
-                <p className={`text-[10px] md:text-[11px] font-bold mt-1 leading-snug line-clamp-2 uppercase tracking-tight ${active ? 'text-blue-700/70' : 'text-slate-400'}`}>
+                <p className={`text-[10px] md:text-[11px] font-bold mt-1.5 leading-snug line-clamp-2 uppercase tracking-tight ${active ? 'text-blue-700/70' : 'text-slate-400'}`}>
                     {desc}
                 </p>
             </div>

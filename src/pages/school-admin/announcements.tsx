@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthProvider';
 import {
     Megaphone, User, Send, Search, Filter,
     CheckCircle2, Loader2, Users, MessageSquare, School,
-    Smartphone
+    Smartphone, BadgeCheck
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { ControlSkeleton, CardSkeleton } from '../../components/common/skeletoncomp';
@@ -147,7 +147,7 @@ export function Announcements() {
                     </h1>
                     <p className="text-slate-500 text-[10px] md:text-xs font-bold uppercase tracking-[2px] mt-1 ml-1">WhatsApp Broadcast Control Center</p>
                 </div>
-                
+
                 {/* TABS: Responsive width */}
                 <div className="bg-slate-200/60 p-1.5 rounded-2xl inline-flex w-full md:w-auto shadow-inner">
                     <button onClick={() => setActiveTab('bulk')}
@@ -169,9 +169,9 @@ export function Announcements() {
                     {loading ? <ControlSkeleton /> : (
                         <div className="bg-white p-6 md:p-8 rounded-[35px] border-2 border-blue-50 shadow-sm space-y-5 text-left transition-all hover:border-blue-100">
                             <label className="text-[11px] font-black text-slate-900 uppercase tracking-widest ml-1 flex items-center gap-2">
-                                <Filter size={14} className="text-blue-600"/> Target Audience
+                                <Filter size={14} className="text-blue-600" /> Target Audience
                             </label>
-                            
+
                             {activeTab === 'bulk' ? (
                                 <div className="relative">
                                     <select
@@ -211,9 +211,25 @@ export function Announcements() {
                                                 {foundStudent.full_name.charAt(0)}
                                             </div>
                                             <div className="min-w-0">
-                                                <h3 className="text-sm font-black text-slate-900 uppercase truncate tracking-tight">{foundStudent.full_name}</h3>
-                                                <p className="text-[10px] text-blue-600 font-black uppercase mt-1">Grade {foundStudent.current_class} | {foundStudent.roll_number}</p>
-                                                <p className="text-[9px] font-bold text-slate-500 mt-0.5">Verified Mobile: {foundStudent.father_mobile || foundStudent.phone || 'N/A'}</p>
+                                                <h3 className="text-sm font-black text-slate-900 uppercase truncate tracking-tight">
+                                                    {foundStudent.full_name}
+                                                </h3>
+                                                <p className="text-[10px] text-blue-600 font-black uppercase mt-1">
+                                                    Grade {foundStudent.current_class} | {foundStudent.roll_number}
+                                                </p>
+                                                <p className="text-[9px] font-bold text-slate-500 mt-0.5">
+                                                    Father Name: {foundStudent.father_name || foundStudent.mother_name || 'N/A'}
+                                                </p>
+
+                                                {/* Updated Mobile Section with Green Badge */}
+                                                <div className="flex items-center gap-1 mt-0.5">
+                                                    <p className="text-[9px] font-bold text-slate-500">
+                                                        Verified Mobile: {foundStudent.father_mobile || foundStudent.phone || 'N/A'}
+                                                    </p>
+                                                    {(foundStudent.father_mobile || foundStudent.phone) && (
+                                                        <BadgeCheck size={12} className="text-emerald-500 fill-emerald-50" strokeWidth={2.5} />
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
                                     )}
@@ -225,7 +241,7 @@ export function Announcements() {
                     {/* MESSAGE COMPOSER */}
                     <div className="bg-white p-6 md:p-8 rounded-[35px] border-2 border-white shadow-xl text-left">
                         <label className="text-[11px] font-black text-slate-900 uppercase tracking-widest ml-1 flex items-center gap-2 mb-3">
-                            <MessageSquare size={14} className="text-blue-600"/> Message Body
+                            <MessageSquare size={14} className="text-blue-600" /> Message Body
                         </label>
                         <textarea
                             className="w-full h-40 md:h-48 p-6 bg-slate-50 border-2 border-slate-100 rounded-3xl text-sm font-bold text-slate-800 outline-none resize-none focus:border-blue-600 focus:bg-white focus:ring-4 ring-blue-50 transition-all shadow-inner placeholder:text-slate-400"
@@ -255,11 +271,11 @@ export function Announcements() {
                     <div className="text-left mb-4">
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Live Preview</p>
                     </div>
-                    
+
                     {/* PHONE MOCKUP */}
                     <div className="bg-slate-900 p-4 rounded-[50px] shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] border-[10px] border-slate-800 relative mx-auto max-w-[320px]">
                         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-28 h-6 bg-slate-800 rounded-b-2xl z-10"></div>
-                        
+
                         {/* Status Bar */}
                         <div className="flex justify-between items-center px-6 py-3 mb-4 opacity-70">
                             <span className="text-[11px] text-white font-black tabular-nums">{formattedTime}</span>
@@ -280,7 +296,7 @@ export function Announcements() {
                             <div className="text-left">
                                 <p className="text-[13px] font-black text-white leading-none">{school_name || 'Admin'}</p>
                                 <p className="text-[10px] text-emerald-400 font-bold mt-1.5 flex items-center gap-1">
-                                    <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span> Official Hub
+                                    <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span> Official Account
                                 </p>
                             </div>
                         </div>
@@ -296,7 +312,7 @@ export function Announcements() {
                                 <span className="text-[9px] font-black text-white/40">{formattedTime}</span>
                             </div>
 
-                            <p className="text-[11px] text-slate-300 mb-3 text-left font-bold italic">
+                            <p className="text-[11px] text-slate-300 mb-3 text-left font-bold ">
                                 Dear Parent of <span className="text-emerald-400 not-italic uppercase">{activeTab === 'single' && foundStudent ? foundStudent.full_name : '[Name]'}</span>,
                             </p>
 

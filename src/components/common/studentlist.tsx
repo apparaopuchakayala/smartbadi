@@ -86,7 +86,7 @@ export function StudentList() {
                         onClick={fetchStudents} 
                         className="order-1 sm:order-2 px-8 md:px-12 py-4 md:py-5 bg-blue-700 text-white rounded-[20px] font-black uppercase text-[11px] tracking-[2px] shadow-2xl hover:bg-slate-900 active:scale-95 transition-all flex items-center justify-center gap-3 w-full sm:w-auto"
                     >
-                        Search Registry <ChevronRight size={18} />
+                        result <ChevronRight size={18} />
                     </button>
                 </div>
             </div>

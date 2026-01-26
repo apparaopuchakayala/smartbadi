@@ -7,7 +7,7 @@
   import { useAuth } from '../../context/AuthProvider';
   import toast from 'react-hot-toast';
 
-  export function SchoolInfrastructure({ schoolId }: { schoolId: string }) {
+  export function ClassCreation({ schoolId }: { schoolId: string }) {
     const [loading, setLoading] = useState(true);
     const [activeClasses, setActiveClasses] = useState<any[]>([]);
     const [classSubjectCounts, setClassSubjectCounts] = useState<Record<string, number>>({});

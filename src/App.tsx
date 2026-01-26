@@ -6,15 +6,15 @@ import { ForgotPasswordPage } from './pages/Forgotpassword/forgotpassword';
 import { SchoolSelector } from './pages/schoolselector/schoolselector';
 import { ManageSchools } from './pages/admin/manageschools';
 import { Sidebar } from './components/sidebar';
-import { Staffsetup } from './pages/school-admin/staffsetup';
+import { StaffCreation } from './pages/school-admin/staffcreation';
 import { StaffManagement } from './pages/admin/staffmanagement';
-import { StudentHub } from './pages/school-admin/studenthub';
+import { StudentEnrollment } from './pages/school-admin/studentenrollment';
 import { AdminDashboard } from './pages/school-admin/admin-dashboard';
 import { AccessControl } from './pages/school-admin/accesscontrol';
 import { Menu, ShieldAlert } from 'lucide-react';
 import { LoginLoading } from './components/utilitis/LoginLoading';
-import { ClassMapping } from './pages/school-admin/classmapping';
-import { SchoolInfrastructure } from './pages/school-admin/schoolinfra';
+import { AttenadnceMapping } from './pages/school-admin/attendancemapping';
+import { ClassCreation } from './pages/school-admin/classcreation';
 import { AttendanceSettings } from './pages/school-admin/attendancesettings';
 import { StaffPlanning } from './pages/school-admin/staffplanning';
 import { TeacherAttendance } from './pages/teacher/teacherattendance';
@@ -22,16 +22,9 @@ import { TeacherDashboard } from './pages/teacher/teacherdashboard';
 import { Announcements } from './pages/school-admin/announcements';
 import { ExamManagement } from './pages/school-admin/exam-management';
 import { TeacherMarksEntry } from './pages/teacher/teacherMarksEntry';
+import { StudentList } from './components/common/studentlist';
 import { motion, AnimatePresence } from 'framer-motion';
 import './styles/global.css';
-
-export default function App() {
-  return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
-  );
-}
 
 const PageWrapper = ({ children }: { children: React.ReactNode }) => (
   <motion.div
@@ -46,13 +39,13 @@ const PageWrapper = ({ children }: { children: React.ReactNode }) => (
 );
 
 const AccessDenied = () => (
-  <div className="h-full flex flex-col items-center justify-center text-center p-10">
+  <div className="h-full flex flex-col items-center justify-center text-center p-10 mt-20">
     <div className="w-20 h-20 bg-red-50 text-red-500 rounded-3xl flex items-center justify-center mb-6 shadow-xl shadow-red-100">
       <ShieldAlert size={40} />
     </div>
-    <h2 className="text-2xl font-black text-slate-800 uppercase tracking-tighter">Access Restricted</h2>
-    <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-2 max-w-xs">
-      Contact your School Administrator to enable this module for your account.
+    <h2 className="text-2xl font-black text-slate-800 uppercase tracking-tighter leading-none">Access Restricted</h2>
+    <p className="text-slate-400 text-[10px] font-bold uppercase tracking-[3px] mt-4 max-w-xs leading-relaxed">
+      Contact Administrator to enable this module.
     </p>
   </div>
 );
@@ -93,13 +86,11 @@ function AppContent() {
   }, [session, profile, loading, currentPage]);
 
   if (loading) return <LoginLoading />;
-
   const isAuthPage = ['landing', 'login', 'forgot-password'].includes(currentPage);
 
   return (
     <div className={`min-h-screen w-full flex overflow-hidden ${isAuthPage ? 'items-center justify-center bg-gray-100' : 'bg-[#f0f9ff] flex-row h-screen'}`}>
       <Toaster position="bottom-center" />
-
       <AnimatePresence mode="wait">
         {!isAuthPage && session && profile ? (
           <div className="flex w-full h-full overflow-hidden" key="app-main">
@@ -110,34 +101,45 @@ function AppContent() {
               isDesktopVisible={isSidebarVisible}
               toggleSidebar={() => setIsSidebarVisible(!isSidebarVisible)}
             />
-
             <main className="flex-1 overflow-y-auto bg-[#f8fafc] transition-all duration-300 relative scroll-smooth">
               {!isSidebarVisible && (
                 <button onClick={() => setIsSidebarVisible(true)} className="hidden md:flex fixed top-6 left-6 z-50 p-3 bg-white shadow-xl rounded-2xl text-blue-600 border border-blue-50">
                   <Menu size={20} />
                 </button>
               )}
-
               <div className="max-w-7xl mx-auto p-4 md:p-8 min-h-screen">
                 <AnimatePresence mode="wait">
                   <PageWrapper key={currentPage}>
+                    {/* Multi-Role Student List */}
+                    {currentPage === 'student-list' && (
+                      (profile.role === 'super-admin' || profile.role === 'school-admin') ? <StudentList /> :
+                      (profile.role === 'teacher' && profile.permissions?.studentlist) ? <StudentList /> : <AccessDenied />
+                    )}
+
+                    {/* Admin Specific Routes */}
                     {currentPage === 'manage-schools' && profile.role === 'super-admin' && <ManageSchools />}
                     {currentPage === 'global-staff' && profile.role === 'super-admin' && <StaffManagement />}
-                    {currentPage === 'school-staff' && profile.role === 'school-admin' && <Staffsetup />}
-                    {currentPage === 'student-hub' && profile.role === 'school-admin' && <StudentHub />}
+                    {currentPage === 'school-staff' && profile.role === 'school-admin' && <StaffCreation />}
+                    {currentPage === 'student-hub' && profile.role === 'school-admin' && <StudentEnrollment />}
                     {currentPage === 'admin-dashboard' && profile.role === 'school-admin' && <AdminDashboard />}
                     {currentPage === 'access-cntrl' && profile.role === 'school-admin' && <AccessControl />}
                     {currentPage === 'stfplanning' && profile.role === 'school-admin' && <StaffPlanning schoolId={activeSchoolId} />}
                     {currentPage === 'exammngmt' && profile.role === 'school-admin' && <ExamManagement schoolId={activeSchoolId} />}
-                    {currentPage === 'class-mapping' && profile.role === 'school-admin' && <ClassMapping schoolId={activeSchoolId} />}
-                    {currentPage === 'infra' && profile.role === 'school-admin' && <SchoolInfrastructure schoolId={activeSchoolId} />}
-                    {currentPage === 'atnsettings' && profile.role === 'school-admin' && <AttendanceSettings schoolId={activeSchoolId} />}
+                    {currentPage === 'attendance-mapping' && profile.role === 'school-admin' && <AttenadnceMapping schoolId={activeSchoolId} />}
+                    {currentPage === 'infra' && profile.role === 'school-admin' && <ClassCreation schoolId={activeSchoolId} />}
                     {currentPage === 'announcements' && profile.role === 'school-admin' && <Announcements schoolId={activeSchoolId} />}
-                    
-                    {/* Teacher Protected Routes */}
+
+                    {/* Teacher Specific Routes */}
                     {currentPage === 'dashboard' && profile.role === 'teacher' && <TeacherDashboard schoolId={activeSchoolId} />}
-                    {currentPage === 'attendance' && profile.role === 'teacher' && (profile.permissions?.attendance ? <TeacherAttendance schoolId={activeSchoolId} /> : <AccessDenied />)}
-                    {currentPage === 'marks-entry' && profile.role === 'teacher' && (profile.permissions?.marks ? <TeacherMarksEntry schoolId={activeSchoolId} /> : <AccessDenied />)}
+                    {currentPage === 'attendance' && profile.role === 'teacher' && (
+                      profile.permissions?.attendance ? <TeacherAttendance schoolId={activeSchoolId} /> : <AccessDenied />
+                    )}
+                    {currentPage === 'marks-entry' && profile.role === 'teacher' && (
+                      profile.permissions?.marks ? <TeacherMarksEntry schoolId={activeSchoolId} /> : <AccessDenied />
+                    )}
+                    {currentPage === 'assignments' && profile.role === 'teacher' && (
+                      profile.permissions?.assignments ? <div className="p-8">Homework Component Content</div> : <AccessDenied />
+                    )}
                   </PageWrapper>
                 </AnimatePresence>
               </div>
@@ -156,5 +158,13 @@ function AppContent() {
         )}
       </AnimatePresence>
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }

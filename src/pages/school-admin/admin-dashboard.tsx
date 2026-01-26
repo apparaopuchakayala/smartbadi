@@ -10,7 +10,7 @@ import { motion } from 'framer-motion';
 import { AttendanceSettings } from './attendancesettings';
 import { AdminMarksView } from './adminmarksview';
 import { BirthdayGreetings } from "./birthdaygreetings";
-import { HubSkeleton, CardSkeleton } from '../../components/skeletoncomp';
+import { HubSkeleton, CardSkeleton } from '../../components/common/skeletoncomp';
 
 export function AdminDashboard() {
     const { profile } = useAuth();

@@ -2,13 +2,11 @@ import { useState } from 'react';
 import {
   LayoutDashboard, Building2, Users, ShieldCheck,
   GraduationCap, CalendarRange, BookOpen, FileSignature,
-  PieChart, LogOut, Menu, X, CheckCircle2, ChevronLeft,
-  FileText, Split, ChevronDown, Zap
+  PieChart, LogOut, ChevronLeft, Split, ChevronDown, CheckCircle2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import logo from '../assets/smartbadi.png';
 import { supabase } from '../services/supabaseClient';
-import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthProvider';
 
 interface SidebarProps {
@@ -22,13 +20,21 @@ interface SidebarProps {
 export function Sidebar({ activePage, onNavigate, userRole, isDesktopVisible, toggleSidebar }: SidebarProps) {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [showLogoutSuccess, setShowLogoutSuccess] = useState(false);
-  
-  // Logic to keep Campus Setup open if one of its children is active
-  const campusSubPages = ['infra', 'school-staff', 'stfplanning'];
-  const [isCampusOpen, setIsCampusOpen] = useState(campusSubPages.includes(activePage));
 
-  const { profile, session } = useAuth();
+  // Submenu states
+  const campusSubPages = ['infra', 'school-staff', 'stfplanning'];
+  const [isCampusHovered, setIsCampusHovered] = useState(false);
+  const [isCampusLocked, setIsCampusLocked] = useState(campusSubPages.includes(activePage));
+
+  const studentSubPages = ['student-list', 'student-enrollment'];
+  const [isStudentHovered, setIsStudentHovered] = useState(false);
+  const [isStudentLocked, setIsStudentLocked] = useState(studentSubPages.includes(activePage));
+
+  const { profile } = useAuth();
   const displayName = profile?.full_name || 'User';
+
+  const isCampusOpen = isCampusHovered || isCampusLocked || campusSubPages.includes(activePage);
+  const isStudentOpen = isStudentHovered || isStudentLocked || studentSubPages.includes(activePage);
 
   const hasAccess = (moduleName: string) => {
     if (userRole === 'school-admin' || userRole === 'super-admin') return true;
@@ -40,22 +46,22 @@ export function Sidebar({ activePage, onNavigate, userRole, isDesktopVisible, to
       case 'super-admin':
         return [
           { id: 'manage-schools', label: 'Global Schools', icon: Building2 },
+          { id: 'student-list', label: 'Student List', icon: GraduationCap },
           { id: 'global-staff', label: 'Global Staff', icon: Users },
           { id: 'settings', label: 'System Settings', icon: ShieldCheck },
         ];
       case 'school-admin':
         return [
           { id: 'admin-dashboard', label: 'Dashboard', icon: LayoutDashboard },
-          // Campus Setup is handled as a special case below for the dropdown
           { id: 'access-cntrl', label: 'Access Control', icon: ShieldCheck },
-          { id: 'student-hub', label: 'Student Hub', icon: GraduationCap },
-          { id: 'class-mapping', label: 'Class Mapping', icon: CalendarRange },
+          { id: 'attendance-mapping', label: 'Attendance Mapping', icon: CalendarRange },
           { id: 'exammngmt', label: 'Exam Management', icon: FileSignature },
           { id: 'announcements', label: 'Announcements', icon: PieChart },
         ];
       case 'teacher':
         const teacherItems = [
           { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, perm: 'dashboard' },
+          { id: 'student-list', label: 'Student List', icon: GraduationCap, perm: 'studentlist' },
           { id: 'attendance', label: 'Attendance', icon: Users, perm: 'attendance' },
           { id: 'marks-entry', label: 'Marks Entry', icon: FileSignature, perm: 'marks' },
           { id: 'assignments', label: 'Homework', icon: BookOpen, perm: 'assignments' },
@@ -92,23 +98,23 @@ export function Sidebar({ activePage, onNavigate, userRole, isDesktopVisible, to
       </AnimatePresence>
 
       <aside className={`fixed md:relative inset-y-0 left-0 z-40 bg-white border-r border-slate-100 shadow-xl flex flex-col h-screen transition-all duration-300 ${isMobileOpen ? 'w-72 translate-x-0' : '-translate-x-full md:translate-x-0'} ${!isDesktopVisible ? 'md:w-0 md:opacity-0' : 'md:w-72'}`}>
-        <div className="p-8 flex items-center justify-between">
-          <img src={logo} alt="SmartBadi" className="h-10 object-contain" />
-          <button onClick={toggleSidebar} className="text-slate-400 hover:text-blue-600"><ChevronLeft size={20} /></button>
+        <div className="p-6 flex items-center justify-center relative">
+          <img src={logo} alt="SmartBadi" className="h-12 object-contain" />
+          <button onClick={toggleSidebar} className="absolute right-4 p-2 text-slate-400 hover:text-blue-600 hover:bg-slate-50 rounded-xl transition-colors"><ChevronLeft size={20} /></button>
         </div>
 
         <div className="px-6 mb-6 text-center">
           <div className="bg-slate-50 p-4 rounded-3xl border border-slate-100">
-            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{profile?.schools?.name || 'SmartBadi'}</p>
-            <h3 className="text-sm font-black text-slate-700 truncate">{displayName}</h3>
+            <p className="text-[12px] font-black text-slate-600 uppercase tracking-widest mb-1">{profile?.schools?.name || 'SmartBadi'}</p>
+            <h3 className="text-sm font-black text-slate-700 truncate mb-1">{displayName}</h3>
             <span className="inline-block mt-2 px-3 py-1 bg-blue-600 text-white rounded-full text-[8px] font-bold uppercase tracking-widest">{userRole?.replace('-', ' ')}</span>
           </div>
         </div>
 
+
         <nav className="flex-1 px-4 space-y-2 overflow-y-auto custom-scrollbar">
           {menuItems.map((item, index) => (
             <div key={item.id}>
-              {/* Main Button */}
               <button
                 onClick={() => onNavigate(item.id)}
                 className={`w-full flex items-center gap-4 px-6 py-4 rounded-2xl transition-all font-bold uppercase text-[10px] tracking-widest ${activePage === item.id ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-50'}`}
@@ -117,31 +123,35 @@ export function Sidebar({ activePage, onNavigate, userRole, isDesktopVisible, to
                 {item.label}
               </button>
 
-              {/* Inject Campus Setup as the 2nd item (after Dashboard) */}
               {userRole === 'school-admin' && index === 0 && (
-                <div className="my-2">
-                  <button 
-                    onClick={() => setIsCampusOpen(!isCampusOpen)} 
-                    className={`w-full flex items-center justify-between px-6 py-4 rounded-2xl transition-all uppercase text-[10px] font-bold tracking-widest ${campusSubPages.includes(activePage) || isCampusOpen ? 'bg-slate-50 text-blue-600' : 'text-slate-400 hover:bg-slate-50'}`}
-                  >
-                    <div className="flex items-center gap-4">
-                      <Split size={18} className={campusSubPages.includes(activePage) ? 'text-blue-600' : ''} /> 
-                      Campus Setup
-                    </div>
-                    <ChevronDown size={14} className={`transition-transform duration-300 ${isCampusOpen ? 'rotate-180' : ''}`} />
+                <div className="my-1" onMouseEnter={() => setIsCampusHovered(true)} onMouseLeave={() => setIsCampusHovered(false)}>
+                  <button onClick={() => setIsCampusLocked(!isCampusLocked)} className={`w-full flex items-center justify-between px-6 py-4 rounded-2xl transition-all uppercase text-[10px] font-bold tracking-widest ${isCampusOpen ? 'bg-slate-50 text-blue-600' : 'text-slate-400 hover:bg-slate-50'}`}>
+                    <div className="flex items-center gap-4"><Split size={18} /> Campus Setup</div>
+                    <ChevronDown size={14} className={`transition-transform ${isCampusOpen ? 'rotate-180' : ''}`} />
                   </button>
-                  
                   <AnimatePresence>
                     {isCampusOpen && (
-                      <motion.div 
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: 'auto', opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        className="pl-12 space-y-1 mt-1 overflow-hidden"
-                      >
-                        <SubItem id="infra" label="Class Setup" activePage={activePage} onNavigate={onNavigate} />
-                        <SubItem id="school-staff" label="Staff Setup" activePage={activePage} onNavigate={onNavigate} />
+                      <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="pl-12 space-y-1 mt-1 overflow-hidden">
+                        <SubItem id="infra" label="Class Creation" activePage={activePage} onNavigate={onNavigate} />
+                        <SubItem id="school-staff" label="Staff Creation" activePage={activePage} onNavigate={onNavigate} />
                         <SubItem id="stfplanning" label="Staff Planning" activePage={activePage} onNavigate={onNavigate} />
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              )}
+
+              {userRole === 'school-admin' && item.id === 'access-cntrl' && (
+                <div className="my-1" onMouseEnter={() => setIsStudentHovered(true)} onMouseLeave={() => setIsStudentHovered(false)}>
+                  <button onClick={() => setIsStudentLocked(!isStudentLocked)} className={`w-full flex items-center justify-between px-6 py-4 rounded-2xl transition-all uppercase text-[10px] font-bold tracking-widest ${isStudentOpen ? 'bg-slate-50 text-blue-600' : 'text-slate-400 hover:bg-slate-50'}`}>
+                    <div className="flex items-center gap-4"><GraduationCap size={18} /> Students</div>
+                    <ChevronDown size={14} className={`transition-transform ${isStudentOpen ? 'rotate-180' : ''}`} />
+                  </button>
+                  <AnimatePresence>
+                    {isStudentOpen && (
+                      <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="pl-12 space-y-1 mt-1 overflow-hidden">
+                        <SubItem id="student-list" label="Student List" activePage={activePage} onNavigate={onNavigate} />
+                        <SubItem id="student-hub" label="Student Enrollment" activePage={activePage} onNavigate={onNavigate} />
                       </motion.div>
                     )}
                   </AnimatePresence>
@@ -161,14 +171,10 @@ export function Sidebar({ activePage, onNavigate, userRole, isDesktopVisible, to
   );
 }
 
-// Sub-item Helper Component
 function SubItem({ id, label, activePage, onNavigate }: { id: string, label: string, activePage: string, onNavigate: (id: string) => void }) {
   const isActive = activePage === id;
   return (
-    <button
-      onClick={() => onNavigate(id)}
-      className={`w-full text-left py-2.5 px-2 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all ${isActive ? 'text-blue-600 translate-x-1' : 'text-slate-400 hover:text-slate-600'}`}
-    >
+    <button onClick={() => onNavigate(id)} className={`w-full text-left py-2.5 px-2 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all ${isActive ? 'text-blue-600 translate-x-1' : 'text-slate-400 hover:text-slate-600'}`}>
       <div className="flex items-center gap-2">
         <div className={`w-1 h-1 rounded-full ${isActive ? 'bg-blue-600' : 'bg-slate-300'}`} />
         {label}

@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { smartBadiApi } from '../../services/smartBadiApi';
 import toast from 'react-hot-toast';
 
-export function ClassMapping({ schoolId }: { schoolId: string }) {
+export function AttenadnceMapping({ schoolId }: { schoolId: string }) {
     const [filters, setFilters] = useState({ className: '', section: '', fromDate: '', toDate: '' });
     const [showTimetable, setShowTimetable] = useState(false);
     const [selectedSlot, setSelectedSlot] = useState<any>(null);

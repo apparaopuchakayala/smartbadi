@@ -12,13 +12,13 @@ import toast from 'react-hot-toast';
 import { SchoolLoading } from '../../components/utilitis/SchoolLoading';
 import { DeleteLoading } from '../../components/utilitis/DeleteLoading';
 import { smartBadiApi } from '../../services/smartBadiApi.ts';
-import { StudentProfileModal } from '../admin/studentprofilemodal';
+import { StudentProfileModal } from '../../components/common/studentprofilemodal';
 
-export function StudentHub() {
+export function StudentEnrollment() {
     const { profile } = useAuth();
     const fileInputRef = useRef<HTMLInputElement>(null);
     const photoInputRef = useRef<HTMLInputElement>(null);
-    const bulkPhotoRef = useRef<HTMLInputElement>(null); // Ref for bulk photos
+    const bulkPhotoRef = useRef<HTMLInputElement>(null);
 
     const [students, setStudents] = useState<any[]>([]);
     const [allocatedClasses, setAllocatedClasses] = useState<any[]>([]);

@@ -1,129 +1,183 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../services/supabaseClient';
-import { ShieldCheck, UserCog, Lock, Eye, CheckCircle2, XCircle } from 'lucide-react';
+import { ShieldCheck, Search, Users, GraduationCap, Heart, Lock, Unlock, ShieldAlert, CheckCircle2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 
 export function AccessControl() {
     const [users, setUsers] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [searchTerm, setSearchTerm] = useState("");
+    const [activeTab, setActiveTab] = useState<'staff' | 'student' | 'parent'>('staff');
 
-    useEffect(() => {
-        fetchUsers();
-    }, []);
+    useEffect(() => { fetchUsers(); }, []);
 
     const fetchUsers = async () => {
         setLoading(true);
-        // Roles based profiles fetch
         const { data } = await supabase
             .from('profiles')
             .select('id, full_name, employee_id, role, permissions')
-            .in('role', ['teacher', 'admin', 'clerk'])
-            .order('role');
+            .in('role', ['teacher', 'admin', 'clerk', 'student', 'parent'])
+            .order('full_name');
         setUsers(data || []);
         setLoading(false);
     };
 
     const togglePermission = async (userId: string, currentPerms: any, module: string) => {
         const updatedPerms = { ...currentPerms, [module]: !currentPerms?.[module] };
-        
-        const { error } = await supabase
-            .from('profiles')
-            .update({ permissions: updatedPerms })
-            .eq('id', userId);
+        const { error } = await supabase.from('profiles').update({ permissions: updatedPerms }).eq('id', userId);
 
         if (!error) {
-            toast.success("Permissions Synchronized");
-            fetchUsers();
+            setUsers(users.map(u => u.id === userId ? { ...u, permissions: updatedPerms } : u));
+            toast.success(`${module.toUpperCase()} Access Updated`);
         }
     };
 
-    return (
-        <div className="space-y-8 p-6 text-left bg-[#F8FAFC] min-h-screen font-poppins">
-            {/* Header Section */}
-            <header className="bg-white p-10 rounded-[50px] shadow-sm border border-white flex justify-between items-center">
-                <div>
-                    <h1 className="text-3xl font-black text-slate-800 uppercase tracking-tighter">
-                        Access <span className="text-blue-600">Command Center</span>
-                    </h1>
-                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-[3px] mt-2">
-                        Define Role-Based Module Visibility
-                    </p>
-                </div>
-                <div className="p-5 bg-slate-900 text-white rounded-[35px] shadow-2xl">
-                    <ShieldCheck size={32} />
-                </div>
-            </header>
+    const filteredUsers = users.filter(u => {
+        const matchesTab = activeTab === 'staff' 
+            ? ['teacher', 'admin', 'clerk'].includes(u.role) 
+            : u.role === activeTab;
+        const matchesSearch = u.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                             u.employee_id?.toLowerCase().includes(searchTerm.toLowerCase());
+        return matchesTab && matchesSearch;
+    });
 
-            {/* User Access Table */}
-            <div className="bg-white rounded-[45px] shadow-xl border border-slate-100 overflow-hidden">
-                <table className="w-full text-left">
-                    <thead className="bg-slate-50 border-b border-slate-100">
-                        <tr className="text-[10px] font-black uppercase text-slate-400">
-                            <th className="px-10 py-8">Staff Identity</th>
-                            <th className="px-6 py-8">Module Permissions</th>
-                            <th className="px-10 py-8 text-center">System Access</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-50">
-                        {users.map((user) => (
-                            <tr key={user.id} className="hover:bg-slate-50/50 transition-all">
-                                <td className="px-10 py-6">
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center font-black">
-                                            {user.full_name[0]}
-                                        </div>
-                                        <div>
-                                            <p className="text-sm font-black text-slate-800 uppercase">{user.full_name}</p>
-                                            <p className="text-[10px] font-bold text-slate-400">{user.employee_id} • {user.role}</p>
-                                        </div>
+    return (
+        <div className="space-y-8 p-4 md:p-8 bg-[#F0F4F8] min-h-screen font-poppins pb-24 text-left">
+            
+            {/* --- HEADER --- */}
+            <div className="flex flex-col lg:flex-row justify-between items-center gap-6 bg-white p-8 rounded-[40px] shadow-md border-2 border-blue-100">
+                <div className="flex items-center gap-6">
+                    <div className="w-16 h-16 bg-slate-900 text-white rounded-3xl flex items-center justify-center shadow-2xl border-4 border-white">
+                        <ShieldCheck size={36} />
+                    </div>
+                    <div>
+                        <h1 className="text-3xl font-black text-slate-900 uppercase tracking-tighter leading-none">
+                            Access <span className="text-blue-700">Hub</span>
+                        </h1>
+                        <p className="text-[12px] font-black text-slate-500 uppercase tracking-[2px] mt-2">Security & Permissions Center</p>
+                    </div>
+                </div>
+
+                <div className="relative w-full lg:w-96">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+                    <input 
+                        type="text"
+                        placeholder={`Search ${activeTab}...`}
+                        className="w-full pl-12 pr-4 py-4 bg-slate-100 border-2 border-slate-200 rounded-2xl text-sm font-bold text-slate-800 outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-600 transition-all"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                </div>
+            </div>
+
+            {/* --- TAB NAVIGATION --- */}
+            <div className="flex bg-slate-200 p-2 rounded-[25px] w-fit gap-3 shadow-inner">
+                <TabButton active={activeTab === 'staff'} icon={<Users size={18}/>} label="Staff Management" onClick={() => setActiveTab('staff')} />
+                <TabButton active={activeTab === 'student'} icon={<GraduationCap size={18}/>} label="Student Registry" onClick={() => setActiveTab('student')} />
+                <TabButton active={activeTab === 'parent'} icon={<Heart size={18}/>} label="Parent Registry" onClick={() => setActiveTab('parent')} />
+            </div>
+
+            {/* --- CARDS GRID --- */}
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+                <AnimatePresence mode="popLayout">
+                    {filteredUsers.map((user) => (
+                        <motion.div 
+                            layout
+                            key={user.id}
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                            className="p-1 rounded-[38px] bg-gradient-to-b from-blue-100 to-transparent"
+                        >
+                            <div className="bg-white p-6 rounded-[36px] shadow-lg border-2 border-white min-h-[320px] flex flex-col">
+                                <div className="flex items-center gap-4 mb-6">
+                                    <div className="w-14 h-14 bg-blue-700 text-white rounded-2xl flex items-center justify-center text-xl font-black shadow-lg border-2 border-white">
+                                        {user.full_name?.[0]}
                                     </div>
-                                </td>
-                                <td className="px-6 py-6">
-                                    <div className="flex gap-3">
-                                        <PermissionToggle 
-                                            label="Attendance" 
-                                            active={user.permissions?.attendance} 
-                                            onClick={() => togglePermission(user.id, user.permissions, 'attendance')}
-                                        />
-                                        <PermissionToggle 
-                                            label="Marks Entry" 
-                                            active={user.permissions?.marks} 
-                                            onClick={() => togglePermission(user.id, user.permissions, 'marks')}
-                                        />
-                                        <PermissionToggle 
-                                            label="Staff Planning" 
-                                            active={user.permissions?.planning} 
-                                            onClick={() => togglePermission(user.id, user.permissions, 'planning')}
-                                        />
+                                    <div>
+                                        <h3 className="text-md font-black text-slate-900 uppercase tracking-tight">{user.full_name}</h3>
+                                        <p className="text-[10px] font-black text-blue-600 uppercase mt-1 px-2 py-0.5 bg-blue-50 rounded border border-blue-100 inline-block">
+                                            {user.role} • {user.employee_id || 'ID Pending'}
+                                        </p>
                                     </div>
-                                </td>
-                                <td className="px-10 py-6 text-center">
-                                    <button className="p-4 bg-slate-100 text-slate-400 rounded-2xl hover:bg-slate-900 hover:text-white transition-all">
-                                        <UserCog size={20} />
-                                    </button>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
+                                </div>
+
+                                <div className="flex-1 bg-slate-50 p-5 rounded-3xl border border-slate-100">
+                                    {activeTab === 'staff' ? (
+                                        <>
+                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2 border-b border-slate-200 pb-2">
+                                                <Lock size={12}/> Control Panel
+                                            </p>
+                                            <div className="space-y-3">
+                                                <PermissionSwitch label="Attendance" active={user.permissions?.attendance} onClick={() => togglePermission(user.id, user.permissions, 'attendance')} />
+                                                <PermissionSwitch label="Marks Entry" active={user.permissions?.marks} onClick={() => togglePermission(user.id, user.permissions, 'marks')} />
+                                                <PermissionSwitch label="Student List" active={user.permissions?.studentlist} onClick={() => togglePermission(user.id, user.permissions, 'studentlist')} />
+                                                <PermissionSwitch label="Assignments" active={user.permissions?.assignments} onClick={() => togglePermission(user.id, user.permissions, 'assignments')} />
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <div className="h-full flex flex-col items-center justify-center text-center space-y-4">
+                                            <div className="w-12 h-12 bg-green-50 text-green-500 rounded-full flex items-center justify-center">
+                                                <CheckCircle2 size={24} />
+                                            </div>
+                                            <div>
+                                                <p className="text-[11px] font-black text-slate-800 uppercase tracking-tight">System Managed Access</p>
+                                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1 max-w-[180px]">
+                                                    Access for {activeTab}s is restricted to personal dashboards only.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </motion.div>
+                    ))}
+                </AnimatePresence>
             </div>
         </div>
     );
 }
 
-// Internal Toggle Component
-function PermissionToggle({ label, active, onClick }: any) {
+// --- COMPONENTS ---
+
+function TabButton({ active, icon, label, onClick }: any) {
     return (
         <button 
             onClick={onClick}
-            className={`px-5 py-2.5 rounded-full text-[9px] font-black uppercase tracking-widest transition-all border flex items-center gap-2 ${
-                active 
-                ? 'bg-green-50 text-green-600 border-green-100 shadow-sm' 
-                : 'bg-slate-50 text-slate-400 border-slate-100'
+            className={`flex items-center gap-3 px-8 py-3.5 rounded-[20px] transition-all font-black text-[11px] uppercase tracking-widest border-2 ${
+                active ? 'bg-blue-700 text-white border-blue-800 shadow-xl scale-105' : 'bg-white text-slate-500 border-transparent hover:bg-slate-50'
             }`}
         >
-            {active ? <CheckCircle2 size={12} /> : <Lock size={12} />}
-            {label}
+            {icon} {label}
         </button>
+    );
+}
+
+function PermissionSwitch({ label, active, onClick }: { label: string, active: boolean, onClick: () => void }) {
+    return (
+        <div 
+            onClick={onClick}
+            className={`flex items-center justify-between p-4 rounded-2xl cursor-pointer transition-all border-2 ${
+                active ? 'bg-white border-blue-600 shadow-md' : 'bg-slate-100 border-slate-200 opacity-80'
+            }`}
+        >
+            <div className="flex items-center gap-3">
+                {active ? <Unlock size={16} className="text-blue-600"/> : <Lock size={16} className="text-slate-400"/>}
+                <span className={`text-[11px] font-black uppercase tracking-tight ${active ? 'text-slate-900' : 'text-slate-500'}`}>
+                    {label}
+                </span>
+            </div>
+            
+            <div className={`relative w-14 h-7 rounded-full transition-all flex items-center px-1 shrink-0 ${active ? 'bg-blue-600' : 'bg-slate-400'}`}>
+                <motion.div 
+                    animate={{ x: active ? 28 : 0 }}
+                    className="w-5 h-5 bg-white rounded-full shadow-lg border border-slate-200 z-10"
+                />
+                <span className={`absolute text-[8px] font-black uppercase ${active ? 'left-2 text-white' : 'right-2 text-white'}`}>
+                    {active ? 'ON' : 'OFF'}
+                </span>
+            </div>
+        </div>
     );
 }

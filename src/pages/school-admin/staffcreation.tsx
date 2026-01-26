@@ -22,7 +22,7 @@ import toast from 'react-hot-toast';
 
 type UserRole = 'teacher' | 'student' | 'parent' | 'school-admin';
 
-export function Staffsetup() {
+export function StaffCreation() {
     const { profile } = useAuth();
     const [staff, setStaff] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);

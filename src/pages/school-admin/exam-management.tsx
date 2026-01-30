@@ -7,7 +7,6 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
-// Import skeletons
 import { TableSkeleton, ControlSkeleton } from '../../components/common/skeletoncomp';
 
 export function ExamManagement() {
@@ -21,7 +20,7 @@ export function ExamManagement() {
     const [examTypes, setExamTypes] = useState<any[]>([]);
     const [availableClassSubjects, setAvailableClassSubjects] = useState<any[]>([]);
     const [scheduledExams, setScheduledExams] = useState<any[]>([]);
-    
+
     // Filter & Edit States
     const [selectedClassFilter, setSelectedClassFilter] = useState('');
     const [editingExam, setEditingExam] = useState<any>(null);
@@ -56,13 +55,13 @@ export function ExamManagement() {
             ]);
 
             const uniqueClasses = cls.data?.reduce((acc: any[], current) => {
-                if (!acc.find(item => item.class_name === current.class_name)) return acc.concat([current]);
+                if (!acc.find((item: any) => item.class_name === current.class_name)) return acc.concat([current]);
                 return acc;
             }, []);
 
             setClassList(uniqueClasses || []);
             setExamTypes(exms.data || []);
-        } catch (error) { toast.error("Data load failed"); } 
+        } catch (error) { toast.error("Data load failed"); }
         finally { setLoading(false); }
     };
 
@@ -70,7 +69,7 @@ export function ExamManagement() {
         const { data, error } = await supabase
             .from('exam_configurations')
             .select(`
-                id, current_class, current_section, max_marks, pass_marks, exam_date,
+                id, current_class, current_section, class_id, subject_id, max_marks, pass_marks, exam_date,
                 exams ( exam_name ),
                 class_subjects ( subject_name )
             `)
@@ -92,34 +91,69 @@ export function ExamManagement() {
             toast.success("Exam Name Created", { id: loadingToast });
             setNewExamName('');
             fetchInitialData();
-        } catch (error: any) { toast.error(error.message, { id: loadingToast }); } 
+        } catch (error: any) { toast.error(error.message, { id: loadingToast }); }
     };
 
     const handleClassChange = async (classId: string) => {
         const selectedCls = classList.find(c => c.id === classId);
+        // Reset dependent fields when class changes
         setSchedule({ ...schedule, class_id: classId, current_section: '', subject_id: '', subject_code: '', teacher_name: '' });
         if (!selectedCls) return;
 
         const { data: sections } = await supabase.from('school_classes').select('section').eq('class_name', selectedCls.class_name).eq('school_id', profile?.school_id);
         setSectionList(sections || []);
+    };
 
-        const { data: subjects } = await supabase.from('class_subjects').select('id, subject_name, subject_code').eq('class_id', classId).eq('school_id', profile?.school_id);
-        setAvailableClassSubjects(subjects || []);
+    // --- UPDATED: Fetch Subjects based on Class ID (Source of Truth) ---
+    const handleSectionChange = async (section: string) => {
+        setSchedule({ ...schedule, current_section: section, subject_id: '', teacher_name: '' });
+        
+        // 1. Find the REAL class_id for this Name + Section combo
+        const selectedClassName = classList.find(c => c.id === schedule.class_id)?.class_name;
+        
+        const { data: trueClassData } = await supabase
+            .from('school_classes')
+            .select('id')
+            .eq('school_id', profile?.school_id)
+            .eq('class_name', selectedClassName)
+            .eq('section', section)
+            .single();
+
+        if (trueClassData) {
+            // 2. Fetch subjects for this specific Class ID
+            const { data: subjects } = await supabase
+                .from('class_subjects')
+                .select('id, subject_name, subject_code')
+                .eq('class_id', trueClassData.id) // This ensures we get the correct subject IDs
+                .eq('school_id', profile?.school_id);
+            
+            setAvailableClassSubjects(subjects || []);
+        }
     };
 
     const handleSubjectSelection = async (subjectId: string) => {
         const fetchLoading = toast.loading("Checking faculty assignment...");
         try {
             const selectedSub = availableClassSubjects.find(s => s.id === subjectId);
-            const selectedClass = classList.find(c => c.id === schedule.class_id);
-            if (!selectedSub || !selectedClass || !schedule.current_section) return;
+            
+            // Need the true class_id again to check teacher assignment
+            const selectedClassName = classList.find(c => c.id === schedule.class_id)?.class_name;
+            const { data: trueClassData } = await supabase
+                .from('school_classes')
+                .select('id')
+                .eq('school_id', profile?.school_id)
+                .eq('class_name', selectedClassName)
+                .eq('section', schedule.current_section)
+                .single();
 
+            if (!selectedSub || !trueClassData) return;
+
+            // Check assignment using IDs for accuracy
             const { data: assignment } = await supabase
                 .from('teacher_assignments')
                 .select(`profiles ( full_name )`)
-                .ilike('class_name', selectedClass.class_name.trim())
-                .ilike('section', schedule.current_section.trim())
-                .ilike('subject_name', selectedSub.subject_name.trim())
+                .eq('class_id', trueClassData.id)
+                .eq('subject_id', subjectId) // Using subject_id here ensures matching with StaffPlanning
                 .eq('school_id', profile?.school_id)
                 .maybeSingle();
 
@@ -151,22 +185,48 @@ export function ExamManagement() {
         const saveLoading = toast.loading("Committing to registry...");
         try {
             const selectedClassName = classList.find(c => c.id === schedule.class_id)?.class_name;
+
+            // 1. Get True Class ID
+            const { data: trueClassData } = await supabase
+                .from('school_classes')
+                .select('id')
+                .eq('school_id', profile?.school_id)
+                .eq('class_name', selectedClassName)
+                .eq('section', schedule.current_section)
+                .single();
+
+            if (!trueClassData) throw new Error("Class ID not found");
+
+            // 2. Insert with Correct IDs
             const { error } = await supabase.from('exam_configurations').insert([{
                 school_id: profile?.school_id,
                 exam_id: schedule.exam_id,
-                subject_id: schedule.subject_id,
+                subject_id: schedule.subject_id, // Critical: Saving the ID from class_subjects
+                class_id: trueClassData.id,      // Critical: Saving the specific Class ID
                 current_class: selectedClassName,
                 current_section: schedule.current_section,
                 max_marks: schedule.max_marks,
                 pass_marks: schedule.pass_marks,
                 exam_date: schedule.exam_date
             }]);
+
             if (error) throw error;
+            
             toast.success("Exam Scheduled!", { id: saveLoading });
-            setSchedule({ class_id: '', current_section: '', subject_id: '', subject_code: '', teacher_name: '', exam_id: '', max_marks: 100, pass_marks: 35, exam_date: '' });
+            setSchedule({
+                class_id: '',
+                current_section: '',
+                subject_id: '',
+                subject_code: '',
+                teacher_name: '',
+                exam_id: '',
+                max_marks: 100,
+                pass_marks: 35,
+                exam_date: ''
+            });
             fetchScheduledExams();
             setActiveTab('list');
-        } catch (err: any) { toast.error(err.message, { id: saveLoading }); } 
+        } catch (err: any) { toast.error(err.message, { id: saveLoading }); }
     };
 
     const handleUpdateExam = async () => {
@@ -194,13 +254,13 @@ export function ExamManagement() {
         if (!error) { toast.success("Deleted"); fetchScheduledExams(); }
     };
 
-    const filteredScheduledExams = scheduledExams.filter(exam => 
+    const filteredScheduledExams = scheduledExams.filter(exam =>
         selectedClassFilter === '' || exam.current_class === selectedClassFilter
     );
 
     return (
         <div className="max-w-7xl mx-auto space-y-6 md:space-y-10 text-left py-6 md:py-10 font-poppins relative px-4">
-            {/* Header: Responsive Stacking */}
+            {/* Header */}
             <div className="flex flex-col gap-2 border-b-4 border-blue-600/10 pb-6">
                 <h1 className="text-2xl md:text-4xl font-black text-slate-800 tracking-tighter uppercase leading-none">
                     Academic <span className="text-blue-700">Exams</span>
@@ -208,7 +268,7 @@ export function ExamManagement() {
                 <p className="text-slate-400 font-black text-[9px] md:text-[10px] tracking-[3px] uppercase ml-1">Setup Master Names & Academic Schedules</p>
             </div>
 
-            {/* Tabs: Responsive Scroll */}
+            {/* Tabs */}
             <div className="flex overflow-x-auto no-scrollbar gap-3 md:gap-4 p-1.5 bg-slate-200/50 rounded-2xl md:rounded-[24px] w-full lg:w-fit">
                 <TabBtn id="exams" label="1. Create Test" icon={FileSignature} active={activeTab} setActive={setActiveTab} />
                 <TabBtn id="scheduler" label="2. Schedule a Exam" icon={Calendar} active={activeTab} setActive={setActiveTab} />
@@ -218,7 +278,6 @@ export function ExamManagement() {
             <div className="bg-white rounded-[30px] md:rounded-[40px] shadow-2xl border-2 border-slate-100 p-5 md:p-10 min-h-[500px]">
                 <AnimatePresence mode="wait">
                     {loading ? (
-                        /* Master Skeleton View */
                         <div className="space-y-8 animate-pulse">
                             <div className="h-20 bg-slate-100 rounded-3xl w-full" />
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -250,7 +309,7 @@ export function ExamManagement() {
                                         <FormSelect label="1. Academic Grade" value={schedule.class_id} onChange={handleClassChange} options={classList} displayKey="class_name" />
                                         <div className="space-y-3">
                                             <label className="text-[10px] font-black text-slate-900 uppercase tracking-widest ml-1">2. Target Section</label>
-                                            <select disabled={!schedule.class_id} value={schedule.current_section} onChange={e => setSchedule({...schedule, current_section: e.target.value})} className="w-full p-5 bg-slate-100 border-2 border-transparent rounded-2xl font-black outline-none focus:bg-white focus:border-blue-600 transition-all text-sm disabled:opacity-30 shadow-inner appearance-none">
+                                            <select disabled={!schedule.class_id} value={schedule.current_section} onChange={e => handleSectionChange(e.target.value)} className="w-full p-5 bg-slate-100 border-2 border-transparent rounded-2xl font-black outline-none focus:bg-white focus:border-blue-600 transition-all text-sm disabled:opacity-30 shadow-inner appearance-none">
                                                 <option value="">Select Section</option>
                                                 {sectionList.map((s, i) => <option key={i} value={s.section}>Section {s.section}</option>)}
                                             </select>
@@ -342,18 +401,18 @@ export function ExamManagement() {
                         <motion.div initial={{ scale: 0.9, y: 50 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 50 }} className="relative bg-white w-full max-w-lg rounded-[40px] p-8 md:p-12 shadow-2xl border-4 border-white text-left">
                             <div className="flex justify-between items-center mb-8">
                                 <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tighter leading-none">Modify <span className="text-blue-700">Schedule</span></h2>
-                                <button onClick={() => setEditingExam(null)} className="p-3 bg-slate-100 text-slate-400 rounded-2xl hover:bg-red-500 hover:text-white transition-all"><X size={20}/></button>
+                                <button onClick={() => setEditingExam(null)} className="p-3 bg-slate-100 text-slate-400 rounded-2xl hover:bg-red-500 hover:text-white transition-all"><X size={20} /></button>
                             </div>
                             <div className="space-y-6">
                                 <div className="p-6 bg-slate-50 rounded-3xl border-2 border-slate-100 flex items-center gap-5 shadow-inner">
-                                    <div className="p-4 bg-white rounded-2xl text-blue-700 shadow-md"><BookOpen size={24}/></div>
+                                    <div className="p-4 bg-white rounded-2xl text-blue-700 shadow-md"><BookOpen size={24} /></div>
                                     <div><p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Active Subject</p><p className="text-lg font-black text-slate-800 uppercase tracking-tight">{(editingExam.class_subjects as any)?.subject_name}</p></div>
                                 </div>
                                 <div className="grid grid-cols-2 gap-5">
                                     <div className="space-y-2"><label className="text-[10px] font-black uppercase text-slate-900 ml-1">Max Score</label><input type="number" value={editingExam.max_marks} onChange={e => handleMaxMarksChange(e.target.value, 'edit')} className="w-full p-4 bg-slate-100 rounded-2xl font-black text-sm outline-none border-2 border-transparent focus:border-blue-600 transition-all shadow-inner" /></div>
-                                    <div className="space-y-2"><label className="text-[10px] font-black uppercase text-slate-900 ml-1">Min Pass</label><input type="number" value={editingExam.pass_marks} onChange={e => setEditingExam({...editingExam, pass_marks: parseInt(e.target.value)})} className="w-full p-4 bg-slate-100 rounded-2xl font-black text-sm outline-none border-2 border-transparent focus:border-blue-600 transition-all shadow-inner" /></div>
+                                    <div className="space-y-2"><label className="text-[10px] font-black uppercase text-slate-900 ml-1">Min Pass</label><input type="number" value={editingExam.pass_marks} onChange={e => setEditingExam({ ...editingExam, pass_marks: parseInt(e.target.value) })} className="w-full p-4 bg-slate-100 rounded-2xl font-black text-sm outline-none border-2 border-transparent focus:border-blue-600 transition-all shadow-inner" /></div>
                                 </div>
-                                <div className="space-y-2"><label className="text-[10px] font-black uppercase text-slate-900 ml-1">Scheduled Date</label><input type="date" value={editingExam.exam_date} onChange={e => setEditingExam({...editingExam, exam_date: e.target.value})} className="w-full p-5 bg-slate-100 rounded-2xl font-black text-sm outline-none border-2 border-transparent focus:border-blue-600 transition-all shadow-inner" /></div>
+                                <div className="space-y-2"><label className="text-[10px] font-black uppercase text-slate-900 ml-1">Scheduled Date</label><input type="date" value={editingExam.exam_date} onChange={e => setEditingExam({ ...editingExam, exam_date: e.target.value })} className="w-full p-5 bg-slate-100 rounded-2xl font-black text-sm outline-none border-2 border-transparent focus:border-blue-600 transition-all shadow-inner" /></div>
                                 <button onClick={handleUpdateExam} className="w-full py-6 bg-slate-900 text-white rounded-[25px] font-black uppercase text-[12px] tracking-[5px] hover:bg-blue-700 transition-all shadow-2xl flex items-center justify-center gap-3">Save Changes</button>
                             </div>
                         </motion.div>

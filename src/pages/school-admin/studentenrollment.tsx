@@ -6,7 +6,7 @@ import {
     UserCircle, Users2, CheckCircle2,
     Sparkles, DownloadCloud, UploadCloud,
     User, LayoutGrid, Filter, ChevronRight,
-    ImagePlus, Loader2
+    ImagePlus, Loader2, AlertTriangle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
@@ -67,7 +67,7 @@ export function StudentEnrollment() {
         try {
             const { data, error } = await supabase
                 .from('school_classes')
-                .select('class_name, section')
+                .select('id, class_name, section') // <--- UPDATED: Fetching ID here
                 .eq('school_id', profile.school_id);
             if (!error && data) setAllocatedClasses(data);
         } finally {
@@ -200,6 +200,14 @@ export function StudentEnrollment() {
 
                 if (!targetCls || !targetSec) throw new Error("Please select a valid Class and Section");
 
+                // --- NEW LOGIC: FIND CLASS ID ---
+                const matchedClass = allocatedClasses.find(
+                    c => c.class_name === targetCls && c.section === targetSec
+                );
+
+                if (!matchedClass) throw new Error(`Class ID not found for ${targetCls} - ${targetSec}`);
+                // --------------------------------
+
                 const cleanEmail = s.email.toLowerCase().trim();
                 const { data: res, error } = await supabase.functions.invoke('create-user', {
                     body: {
@@ -209,6 +217,7 @@ export function StudentEnrollment() {
                             ...s,
                             current_class: targetCls,
                             current_section: targetSec,
+                            class_id: matchedClass.id, // <--- PASSING THE CLASS ID HERE
                             role: 'student',
                             school_id: profile.school_id,
                             is_active: true
@@ -260,14 +269,14 @@ export function StudentEnrollment() {
 
             {/* HEADER & SEARCH CRITERIA */}
             {infraLoading ? <ControlSkeleton /> : (
-                
+
                 <div className="bg-white p-6 md:p-8 rounded-[35px] md:rounded-[40px] shadow-sm border-2 border-white flex flex-col lg:flex-row justify-between items-center gap-6">
                     <div className="space-y-2 text-center sm:text-left">
-                    <h1 className="text-xl md:text-4xl font-black text-slate-900 uppercase tracking-tighter leading-none">
-                        Student <span className="text-blue-700">Enrollment</span>
-                    </h1>
-                    <p className="text-[10px] md:text-[11px] font-black text-slate-400 uppercase tracking-[2px] md:tracking-[4px] mt-1">on board new students</p>
-                </div>
+                        <h1 className="text-xl md:text-4xl font-black text-slate-900 uppercase tracking-tighter leading-none">
+                            Student <span className="text-blue-700">Enrollment</span>
+                        </h1>
+                        <p className="text-[10px] md:text-[11px] font-black text-slate-400 uppercase tracking-[2px] md:tracking-[4px] mt-1">on board new students</p>
+                    </div>
                     <div className="flex flex-col sm:flex-row items-center gap-4 w-full lg:w-auto text-left">
                         <div className="space-y-2 w-full sm:w-64 ">
                             <select

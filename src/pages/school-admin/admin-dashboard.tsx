@@ -10,6 +10,7 @@ import { motion } from 'framer-motion';
 import { AttendanceSettings } from './attendancesettings';
 import { AdminMarksView } from './adminmarksview';
 import { BirthdayGreetings } from "./birthdaygreetings";
+import {PrincipalSign} from '../../components/common/principlesign';
 // Import skeletons
 import { HubSkeleton, CardSkeleton } from '../../components/common/skeletoncomp';
 
@@ -107,6 +108,9 @@ export function AdminDashboard() {
                                 <StatCard icon={<Target />} title="Classes" value={stats.classes} color="purple" />
                             </>
                         )}
+                    </div>
+                    <div className="w-full max-w-sm">
+                        <PrincipalSign schoolId={profile?.school_id} />
                     </div>
                 </div>
 

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import {
   LayoutDashboard, Building2, Users, ShieldCheck,
   GraduationCap, CalendarRange, BookOpen, FileSignature,
-  PieChart, LogOut, ChevronLeft, Split, ChevronDown, Menu, X , Bell
+  PieChart, LogOut, ChevronLeft, Split, ChevronDown, Menu, X, Bell, Receipt
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import logo from '../assets/smartbadi.png';
@@ -56,6 +56,8 @@ export function Sidebar({ activePage, onNavigate, userRole, isDesktopVisible, to
         { id: 'attendance-mapping', label: 'Attendance Mapping', icon: CalendarRange },
         { id: 'exammngmt', label: 'Exam Management', icon: FileSignature },
         { id: 'announcement', label: 'Announcement', icon: Bell },
+        { id: 'fee-mngmnt', label: 'Fee Management', icon: Receipt },
+
 
       ],
       'teacher': [

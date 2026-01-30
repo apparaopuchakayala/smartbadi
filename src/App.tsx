@@ -12,7 +12,7 @@ import { StudentEnrollment } from './pages/school-admin/studentenrollment';
 import { AdminDashboard } from './pages/school-admin/admin-dashboard';
 import { AccessControl } from './pages/school-admin/accesscontrol';
 import { Menu, ShieldAlert, ShieldCheck } from 'lucide-react'; // Added ShieldCheck
-import { HubSkeleton } from './components/common/skeletoncomp'; 
+import { HubSkeleton } from './components/common/skeletoncomp';
 import { AttenadnceMapping } from './pages/school-admin/attendancemapping';
 import { ClassCreation } from './pages/school-admin/classcreation';
 import { StaffPlanning } from './pages/school-admin/staffplanning';
@@ -22,8 +22,9 @@ import { Announcements } from './pages/school-admin/announcements';
 import { ExamManagement } from './pages/school-admin/exam-management';
 import { TeacherMarksEntry } from './pages/teacher/teacherMarksEntry';
 import { StudentList } from './components/common/studentlist';
+import {FeeManagement} from './pages/school-admin/feemanagement';
 import { motion, AnimatePresence } from 'framer-motion';
-import { supabase } from './services/supabaseClient'; // Ensure supabase is imported
+import { supabase } from './services/supabaseClient'; 
 import './styles/global.css';
 
 const PageWrapper = ({ children }: { children: React.ReactNode }) => (
@@ -115,13 +116,13 @@ function AppContent() {
       {/* --- LOGOUT OVERLAY ANIMATION --- */}
       <AnimatePresence>
         {isLoggingOut && (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-[999] flex items-center justify-center bg-slate-900/60 backdrop-blur-md"
           >
-            <motion.div 
+            <motion.div
               initial={{ scale: 0.8, y: 20 }}
               animate={{ scale: 1, y: 0 }}
               className="bg-white p-12 rounded-[45px] shadow-2xl border-4 border-white flex flex-col items-center text-center max-w-sm mx-4"
@@ -134,7 +135,7 @@ function AppContent() {
                 >
                   <ShieldCheck size={48} strokeWidth={1.5} />
                 </motion.div>
-                <motion.div 
+                <motion.div
                   animate={{ scale: [1, 1.5], opacity: [0.5, 0] }}
                   transition={{ repeat: Infinity, duration: 2 }}
                   className="absolute inset-0 border-2 border-blue-400 rounded-[35px]"
@@ -147,7 +148,7 @@ function AppContent() {
                 Clearing Registry & Logging Out...
               </p>
               <div className="w-full h-1.5 bg-slate-100 rounded-full mt-8 overflow-hidden">
-                <motion.div 
+                <motion.div
                   initial={{ width: "0%" }}
                   animate={{ width: "100%" }}
                   transition={{ duration: 1 }}
@@ -181,7 +182,7 @@ function AppContent() {
                   <PageWrapper key={currentPage}>
                     {currentPage === 'student-list' && (
                       (profile.role === 'super-admin' || profile.role === 'school-admin') ? <StudentList /> :
-                      (profile.role === 'teacher' && profile.permissions?.studentlist) ? <StudentList /> : <AccessDenied />
+                        (profile.role === 'teacher' && profile.permissions?.studentlist) ? <StudentList /> : <AccessDenied />
                     )}
                     {currentPage === 'manage-schools' && profile.role === 'super-admin' && <ManageSchools />}
                     {currentPage === 'global-staff' && profile.role === 'super-admin' && <StaffManagement />}
@@ -194,7 +195,8 @@ function AppContent() {
                     {currentPage === 'attendance-mapping' && profile.role === 'school-admin' && <AttenadnceMapping schoolId={activeSchoolId} />}
                     {currentPage === 'infra' && profile.role === 'school-admin' && <ClassCreation schoolId={activeSchoolId} />}
                     {currentPage === 'announcement' && profile.role === 'school-admin' && <Announcements schoolId={activeSchoolId} />}
-                    {currentPage === 'dashboard' && profile.role === 'teacher' && <TeacherDashboard onSelectClass={() => {}} />}
+                    {currentPage === 'fee-mngmnt' && profile.role === 'school-admin' && <FeeManagement schoolId={activeSchoolId} />}
+                    {currentPage === 'dashboard' && profile.role === 'teacher' && <TeacherDashboard onSelectClass={() => { }} />}
                     {currentPage === 'attendance' && profile.role === 'teacher' && (
                       profile.permissions?.attendance ? <TeacherAttendance /> : <AccessDenied />
                     )}

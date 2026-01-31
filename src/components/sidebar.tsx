@@ -2,7 +2,9 @@ import { useState, useEffect } from 'react';
 import {
   LayoutDashboard, Building2, Users, ShieldCheck,
   GraduationCap, CalendarRange, BookOpen, FileSignature,
-  PieChart, LogOut, ChevronLeft, Split, ChevronDown, Menu, X, Bell, Receipt
+  PieChart, LogOut, ChevronLeft, Split, ChevronDown, Menu, X,
+  Bell, Receipt, CalendarPlus, FilePlus, Trophy
+
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import logo from '../assets/smartbadi.png';
@@ -14,27 +16,37 @@ interface SidebarProps {
   userRole: string;
   isDesktopVisible: boolean;
   toggleSidebar: () => void;
-  onLogout?: () => void; // New Prop
+  onLogout?: () => void;
 }
 
 export function Sidebar({ activePage, onNavigate, userRole, isDesktopVisible, toggleSidebar, onLogout }: SidebarProps) {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const { profile } = useAuth();
 
+  // --- SUB PAGE GROUPS ---
   const campusSubPages = ['infra', 'school-staff', 'stfplanning'];
   const studentSubPages = ['student-list', 'student-enrollment'];
+  const leaveSubPages = ['leave-settings', 'leave-approvals'];
 
+  // --- HOVER & LOCK STATES ---
   const [isCampusHovered, setIsCampusHovered] = useState(false);
   const [isCampusLocked, setIsCampusLocked] = useState(false);
+
   const [isStudentHovered, setIsStudentHovered] = useState(false);
   const [isStudentLocked, setIsStudentLocked] = useState(false);
 
+  const [isLeaveHovered, setIsLeaveHovered] = useState(false);
+  const [isLeaveLocked, setIsLeaveLocked] = useState(false);
+
+  // --- OPEN STATE LOGIC ---
   const isCampusOpen = isCampusHovered || isCampusLocked || campusSubPages.includes(activePage);
   const isStudentOpen = isStudentHovered || isStudentLocked || studentSubPages.includes(activePage);
+  const isLeaveOpen = isLeaveHovered || isLeaveLocked || leaveSubPages.includes(activePage);
 
   useEffect(() => {
     if (campusSubPages.includes(activePage)) setIsCampusLocked(true);
     if (studentSubPages.includes(activePage)) setIsStudentLocked(true);
+    if (leaveSubPages.includes(activePage)) setIsLeaveLocked(true);
   }, [activePage]);
 
   const navigate = (id: string) => {
@@ -49,22 +61,29 @@ export function Sidebar({ activePage, onNavigate, userRole, isDesktopVisible, to
         { id: 'student-list', label: 'Student List', icon: GraduationCap },
         { id: 'global-staff', label: 'Global Staff', icon: Users },
         { id: 'settings', label: 'System Settings', icon: ShieldCheck },
+        { id: 'audit-logs', label: 'Audit logs', icon: ShieldCheck },
       ],
       'school-admin': [
         { id: 'admin-dashboard', label: 'Dashboard', icon: LayoutDashboard },
         { id: 'access-cntrl', label: 'Access Control', icon: ShieldCheck },
         { id: 'attendance-mapping', label: 'Attendance Mapping', icon: CalendarRange },
+        { id: 'leave-mgmt-group', label: 'Leave Management', icon: CalendarPlus },
         { id: 'exammngmt', label: 'Exam Management', icon: FileSignature },
         { id: 'announcement', label: 'Announcement', icon: Bell },
         { id: 'fee-mngmnt', label: 'Fee Management', icon: Receipt },
-
-
+        { id: 'result-dec', label: 'Result Declaration', icon: Trophy },
       ],
       'teacher': [
         { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, perm: 'dashboard' },
         { id: 'student-list', label: 'Student List', icon: GraduationCap, perm: 'studentlist' },
         { id: 'attendance', label: 'Attendance', icon: Users, perm: 'attendance' },
         { id: 'marks-entry', label: 'Marks Entry', icon: FileSignature, perm: 'marks' },
+        { id: 'leave-application', label: 'My Leaves', icon: FilePlus, perm: 'leave' },
+      ],
+      'student': [
+        { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+        { id: 'stu-result', label: 'Result', icon: Trophy},
+
       ]
     };
     return items[userRole as keyof typeof items] || [];
@@ -99,7 +118,7 @@ export function Sidebar({ activePage, onNavigate, userRole, isDesktopVisible, to
           </button>
         </div>
 
-        {/* RESTORED PROFILE CARD SECTION */}
+        {/* PROFILE CARD SECTION */}
         <div className="px-6 mb-6">
           <div className="bg-slate-50 p-5 rounded-[28px] border border-slate-100 text-center shadow-inner">
             <p className="text-[9px] font-black text-slate-400 uppercase tracking-[2px] mb-1">
@@ -118,18 +137,40 @@ export function Sidebar({ activePage, onNavigate, userRole, isDesktopVisible, to
         <nav className="flex-1 px-4 space-y-1 overflow-y-auto no-scrollbar custom-scrollbar">
           {getMenuItems().map((item, index) => (
             <div key={item.id}>
-              {/* Main Menu Item */}
-              <button
-                onClick={() => navigate(item.id)}
-                className={`w-full flex items-center gap-4 px-6 py-4 rounded-2xl transition-all font-black uppercase text-[10px] tracking-widest ${activePage === item.id ? 'bg-blue-600 text-white shadow-xl scale-[1.02]' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'}`}
-              >
-                <item.icon size={18} /> {item.label}
-              </button>
 
-              {/* CAMPUS SETUP DROPDOWN (ONLY FOR SCHOOL ADMIN) */}
+              {/* LEAVE MANAGEMENT DROPDOWN */}
+              {item.id === 'leave-mgmt-group' ? (
+                <div className="mt-1 mb-1" onMouseEnter={() => setIsLeaveHovered(true)} onMouseLeave={() => setIsLeaveHovered(false)}>
+                  <button
+                    onClick={() => setIsLeaveLocked(!isLeaveLocked)}
+                    className={`w-full flex items-center justify-between px-6 py-4 rounded-2xl transition-all uppercase text-[10px] font-black tracking-widest ${isLeaveOpen ? 'bg-blue-50 text-blue-700' : 'text-slate-500 hover:bg-slate-50'}`}
+                  >
+                    <div className="flex items-center gap-4"><item.icon size={18} /> {item.label}</div>
+                    <ChevronDown size={14} className={`transition-transform duration-300 ${isLeaveOpen ? 'rotate-180' : ''}`} />
+                  </button>
+                  <AnimatePresence>
+                    {isLeaveOpen && (
+                      <motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }} className="space-y-1 mt-1 overflow-hidden border-l-2 border-slate-100 ml-8">
+                        <SubItem id="leave-settings" label="Define Leaves" activePage={activePage} onNavigate={navigate} />
+                        <SubItem id="leave-approvals" label="Leave Approvals" activePage={activePage} onNavigate={navigate} />
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              ) : (
+                /* STANDARD MENU ITEM */
+                <button
+                  onClick={() => navigate(item.id)}
+                  className={`w-full flex items-center gap-4 px-6 py-4 rounded-2xl transition-all font-black uppercase text-[10px] tracking-widest ${activePage === item.id ? 'bg-blue-600 text-white shadow-xl scale-[1.02]' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'}`}
+                >
+                  <item.icon size={18} /> {item.label}
+                </button>
+              )}
+
+              {/* CAMPUS SETUP DROPDOWN */}
               {userRole === 'school-admin' && index === 0 && (
                 <div className="mt-1" onMouseEnter={() => setIsCampusHovered(true)} onMouseLeave={() => setIsCampusHovered(false)}>
-                  <button onClick={() => setIsCampusLocked(!isCampusLocked)} className={`w-full flex items-center justify-between px-6 py-4 rounded-2xl transition-all uppercase text-[10px] font-black tracking-widest ${isCampusOpen ? 'bg-blue-50 text-blue-700' : 'text-slate-500'}`}>
+                  <button onClick={() => setIsCampusLocked(!isCampusLocked)} className={`w-full flex items-center justify-between px-6 py-4 rounded-2xl transition-all uppercase text-[10px] font-black tracking-widest ${isCampusOpen ? 'bg-blue-50 text-blue-700' : 'text-slate-500 hover:bg-slate-50'}`}>
                     <div className="flex items-center gap-4"><Split size={18} /> Campus Setup</div>
                     <ChevronDown size={14} className={`transition-transform duration-300 ${isCampusOpen ? 'rotate-180' : ''}`} />
                   </button>
@@ -145,10 +186,10 @@ export function Sidebar({ activePage, onNavigate, userRole, isDesktopVisible, to
                 </div>
               )}
 
-              {/* STUDENTS DROPDOWN (ONLY FOR SCHOOL ADMIN) */}
+              {/* STUDENTS DROPDOWN */}
               {userRole === 'school-admin' && item.id === 'access-cntrl' && (
                 <div className="mt-1" onMouseEnter={() => setIsStudentHovered(true)} onMouseLeave={() => setIsStudentHovered(false)}>
-                  <button onClick={() => setIsStudentLocked(!isStudentLocked)} className={`w-full flex items-center justify-between px-6 py-4 rounded-2xl transition-all uppercase text-[10px] font-black tracking-widest ${isStudentOpen ? 'bg-blue-50 text-blue-700' : 'text-slate-500'}`}>
+                  <button onClick={() => setIsStudentLocked(!isStudentLocked)} className={`w-full flex items-center justify-between px-6 py-4 rounded-2xl transition-all uppercase text-[10px] font-black tracking-widest ${isStudentOpen ? 'bg-blue-50 text-blue-700' : 'text-slate-500 hover:bg-slate-50'}`}>
                     <div className="flex items-center gap-4"><GraduationCap size={18} /> Students</div>
                     <ChevronDown size={14} className={`transition-transform duration-300 ${isStudentOpen ? 'rotate-180' : ''}`} />
                   </button>
@@ -166,8 +207,8 @@ export function Sidebar({ activePage, onNavigate, userRole, isDesktopVisible, to
           ))}
         </nav>
 
-        {/* SIGN OUT */}
-        <div className="p-4 mt-auto border-t border-slate-100">
+        {/* FOOTER ACTIONS (Activity + Sign Out) */}
+        <div className="p-4 mt-auto border-t border-slate-100 space-y-2">
           <button onClick={onLogout} className="w-full flex items-center justify-center gap-3 px-6 py-4 text-red-500 hover:bg-red-50 rounded-2xl transition-all font-black text-[11px] uppercase tracking-[2px] active:scale-95">
             <LogOut size={18} /> Sign Out
           </button>

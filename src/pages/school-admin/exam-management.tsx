@@ -34,9 +34,9 @@ export function ExamManagement() {
         subject_code: '',
         teacher_name: '',
         exam_id: '',
-        max_marks: 100,
-        pass_marks: 35,
-        exam_date: ''
+        max_marks: '',
+        pass_marks: '',
+        exam_date: '',
     });
 
     useEffect(() => {
@@ -107,10 +107,10 @@ export function ExamManagement() {
     // --- UPDATED: Fetch Subjects based on Class ID (Source of Truth) ---
     const handleSectionChange = async (section: string) => {
         setSchedule({ ...schedule, current_section: section, subject_id: '', teacher_name: '' });
-        
+
         // 1. Find the REAL class_id for this Name + Section combo
         const selectedClassName = classList.find(c => c.id === schedule.class_id)?.class_name;
-        
+
         const { data: trueClassData } = await supabase
             .from('school_classes')
             .select('id')
@@ -126,7 +126,7 @@ export function ExamManagement() {
                 .select('id, subject_name, subject_code')
                 .eq('class_id', trueClassData.id) // This ensures we get the correct subject IDs
                 .eq('school_id', profile?.school_id);
-            
+
             setAvailableClassSubjects(subjects || []);
         }
     };
@@ -135,7 +135,7 @@ export function ExamManagement() {
         const fetchLoading = toast.loading("Checking faculty assignment...");
         try {
             const selectedSub = availableClassSubjects.find(s => s.id === subjectId);
-            
+
             // Need the true class_id again to check teacher assignment
             const selectedClassName = classList.find(c => c.id === schedule.class_id)?.class_name;
             const { data: trueClassData } = await supabase
@@ -151,7 +151,7 @@ export function ExamManagement() {
             // Check assignment using IDs for accuracy
             const { data: assignment } = await supabase
                 .from('teacher_assignments')
-                .select(`profiles ( full_name )`)
+                .select(`profiles ( full_name , employee_id )`)
                 .eq('class_id', trueClassData.id)
                 .eq('subject_id', subjectId) // Using subject_id here ensures matching with StaffPlanning
                 .eq('school_id', profile?.school_id)
@@ -162,7 +162,8 @@ export function ExamManagement() {
                 ...prev,
                 subject_id: subjectId,
                 subject_code: selectedSub.subject_code || 'N/A',
-                teacher_name: teacherData?.full_name || 'NOT ASSIGNED'
+                teacher_name: teacherData?.full_name || 'NOT ASSIGNED',
+                teacher_empid : teacherData?.employee_id
             }));
             toast.dismiss(fetchLoading);
         } catch (err) { toast.error("Faculty check failed", { id: fetchLoading }); }
@@ -211,7 +212,7 @@ export function ExamManagement() {
             }]);
 
             if (error) throw error;
-            
+
             toast.success("Exam Scheduled!", { id: saveLoading });
             setSchedule({
                 class_id: '',
@@ -257,6 +258,7 @@ export function ExamManagement() {
     const filteredScheduledExams = scheduledExams.filter(exam =>
         selectedClassFilter === '' || exam.current_class === selectedClassFilter
     );
+
 
     return (
         <div className="max-w-7xl mx-auto space-y-6 md:space-y-10 text-left py-6 md:py-10 font-poppins relative px-4">
@@ -315,7 +317,14 @@ export function ExamManagement() {
                                             </select>
                                         </div>
                                         <FormSelect label="3. Subject Module" value={schedule.subject_id} onChange={handleSubjectSelection} options={availableClassSubjects} displayKey="subject_name" disabled={!schedule.current_section} />
-                                        <ReadOnlyInput label="Assigned Faculty" value={schedule.teacher_name} icon={UserCog} color="green" />
+                                        <ReadOnlyInput
+                                            label="Assigned Faculty"
+                                            value={schedule.teacher_name && schedule.teacher_empid
+                                                ? `${schedule.teacher_name} - ${schedule.teacher_empid}`
+                                                : schedule.teacher_name || 'NOT ASSIGNED'}
+                                            icon={UserCog}
+                                            color="green"
+                                        />
                                         <div className="space-y-3">
                                             <label className="text-[10px] font-black text-slate-900 uppercase tracking-widest ml-1">4. Exam Category</label>
                                             <select value={schedule.exam_id} onChange={e => setSchedule({ ...schedule, exam_id: e.target.value })} className="w-full p-5 bg-slate-100 border-2 border-transparent rounded-2xl font-black outline-none text-sm focus:border-blue-600 focus:bg-white transition-all shadow-inner appearance-none">

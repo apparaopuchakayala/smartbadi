@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { PenTool, Lock, Upload, RefreshCw, CheckCircle2 } from 'lucide-react';
+import { PenTool, Upload, RefreshCw, X, Image as ImageIcon } from 'lucide-react';
 import { useSchoolSign } from '../../hooks/useSchoolsign.ts';
 
 interface Props {
@@ -18,91 +18,105 @@ export function PrincipalSign({ schoolId }: Props) {
         }
     };
 
-    if (loading) return <div className="h-40 bg-slate-50 rounded-2xl animate-pulse" />;
+    if (loading) return <div className="h-16 bg-slate-50 rounded-xl animate-pulse w-full" />;
 
     const hasSignature = !!signatureUrl;
-    const isLocked = hasSignature && !isEditing;
+    const showUploadMode = !hasSignature || isEditing;
 
     return (
-        <div className="bg-white p-6 rounded-[30px] shadow-sm border border-slate-200 flex flex-col gap-4 relative overflow-hidden group">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-visible w-full">
             
-            {/* Header */}
-            <div className="flex justify-between items-start">
-                <div>
-                    <h3 className="text-lg font-black text-slate-800 uppercase tracking-tight">Upload Principal Signature</h3>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
-                        Principal Authorization
-                    </p>
-                </div>
-                <div className={`p-2 rounded-xl transition-all ${isLocked ? 'bg-emerald-50 text-emerald-600' : 'bg-blue-50 text-blue-600'}`}>
-                    {isLocked ? <Lock size={18} /> : <PenTool size={18} />}
-                </div>
-            </div>
+            {/* COMPACT MODE: Display when signature exists and not editing */}
+            {!showUploadMode && (
+                <div className="p-3 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 overflow-hidden">
+                        <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                            <ImageIcon size={14} />
+                        </div>
+                        <div className="min-w-0">
+                            <h3 className="text-xs font-black text-slate-800 uppercase tracking-tight truncate">Principal Sign</h3>
+                            <p className="text-[9px] font-bold text-emerald-500 uppercase tracking-widest truncate">
+                                • Authorized
+                            </p>
+                        </div>
+                    </div>
 
-            {/* Content Area */}
-            <div className={`
-                flex flex-col items-center justify-center p-6 rounded-2xl border-2 border-dashed transition-all
-                ${isLocked ? 'border-emerald-100 bg-emerald-50/10' : 'border-slate-200 bg-slate-50 hover:border-blue-300'}
-            `}>
-                {isLocked ? (
-                    <div className="text-center space-y-3">
-                        <div className="bg-white p-2 rounded-lg border border-slate-100 inline-block shadow-sm">
+                    <div className="flex items-center gap-2 shrink-0">
+                        {/* Signature Preview */}
+                        <div className="h-8 px-2 bg-slate-50 border border-slate-100 rounded-md flex items-center justify-center select-none pointer-events-none">
                             <img 
                                 src={signatureUrl!} 
-                                alt="Principal Signature" 
-                                className="h-16 object-contain opacity-90"
+                                alt="Sign" 
+                                className="h-full w-auto object-contain mix-blend-multiply opacity-80"
                             />
                         </div>
-                        <div className="flex items-center justify-center gap-2 text-emerald-600">
-                            <CheckCircle2 size={12} />
-                            <span className="text-[10px] font-black uppercase tracking-widest">Active & Locked</span>
-                        </div>
-                    </div>
-                ) : (
-                    <div 
-                        onClick={() => fileInputRef.current?.click()}
-                        className="cursor-pointer text-center space-y-2 w-full"
-                    >
-                        <div className="w-12 h-12 bg-white rounded-full shadow-sm flex items-center justify-center mx-auto text-blue-500 mb-2">
-                            {uploading ? <RefreshCw size={20} className="animate-spin" /> : <Upload size={20} />}
-                        </div>
-                        <p className="text-xs font-bold text-slate-600">
-                            {uploading ? "Securing File..." : "Click to Upload Signature"}
-                        </p>
-                        <p className="text-[9px] text-slate-400 uppercase font-bold">
-                            Supports PNG/JPG • Max 2MB
-                        </p>
-                    </div>
-                )}
-                
-                <input 
-                    type="file" 
-                    ref={fileInputRef} 
-                    className="hidden" 
-                    accept="image/*" 
-                    onChange={handleFileChange} 
-                    disabled={isLocked || uploading}
-                />
-            </div>
+                        
+                        {/* --- CUSTOM TOOLTIP BUTTON --- */}
+                        <div className="relative group">
+                            <button 
+                                onClick={() => setIsEditing(true)}
+                                className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-all"
+                            >
+                                <PenTool size={12} />
+                            </button>
 
-            {/* Footer / Actions */}
-            {hasSignature && (
-                <div className="flex justify-end border-t border-slate-100 pt-3">
-                    {isEditing ? (
-                        <button 
-                            onClick={() => setIsEditing(false)}
-                            className="text-[10px] font-black text-slate-400 hover:text-slate-600 uppercase tracking-widest"
-                        >
-                            Cancel
-                        </button>
-                    ) : (
-                        <button 
-                            onClick={() => setIsEditing(true)}
-                            className="text-[10px] font-black text-blue-600 hover:text-blue-700 uppercase tracking-widest flex items-center gap-1"
-                        >
-                            Change Signature
-                        </button>
-                    )}
+                            {/* Tooltip Content */}
+                            <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none z-50 whitespace-nowrap">
+                                <div className="bg-slate-900 text-white text-[9px] font-black uppercase tracking-widest px-2 py-1.5 rounded-lg shadow-xl relative">
+                                    Change Signature
+                                    {/* Tiny Arrow pointing down */}
+                                    <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900"></div>
+                                </div>
+                            </div>
+                        </div>
+                        {/* ----------------------------- */}
+
+                    </div>
+                </div>
+            )}
+
+            {/* UPLOAD MODE: Display when empty or editing */}
+            {showUploadMode && (
+                <div className="p-4 relative">
+                    {/* Header with Cancel button if editing */}
+                    <div className="flex justify-between items-center mb-3">
+                        <h3 className="text-xs font-black text-slate-800 uppercase tracking-tight">
+                            {uploading ? 'Uploading...' : 'Upload Signature'}
+                        </h3>
+                        {isEditing && (
+                            <button onClick={() => setIsEditing(false)} className="text-slate-400 hover:text-red-500">
+                                <X size={14} />
+                            </button>
+                        )}
+                    </div>
+
+                    {/* Compact Drop Area */}
+                    <div 
+                        onClick={() => !uploading && fileInputRef.current?.click()}
+                        className={`
+                            group cursor-pointer flex flex-col items-center justify-center py-4 px-2 rounded-xl border border-dashed transition-all
+                            ${uploading ? 'bg-slate-50 border-slate-200' : 'bg-slate-50/50 border-blue-200 hover:bg-blue-50 hover:border-blue-300'}
+                        `}
+                    >
+                         <input 
+                            type="file" 
+                            ref={fileInputRef} 
+                            className="hidden" 
+                            accept="image/*" 
+                            onChange={handleFileChange} 
+                            disabled={uploading}
+                        />
+
+                        {uploading ? (
+                            <RefreshCw size={18} className="animate-spin text-blue-500 mb-1" />
+                        ) : (
+                            <Upload size={18} className="text-blue-400 group-hover:text-blue-600 group-hover:scale-110 transition-transform mb-1" />
+                        )}
+                        
+                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider text-center">
+                            {uploading ? 'Please wait' : 'Click to Browse'}
+                        </p>
+                    </div>
                 </div>
             )}
         </div>

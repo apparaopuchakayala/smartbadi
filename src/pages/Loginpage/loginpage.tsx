@@ -6,6 +6,8 @@ import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import { smartBadiApi } from '../../services/smartBadiApi.ts';
 import { LoginFormSkeleton } from '../../components/common/skeletoncomp'; // Import skeleton
+import { useAudit } from '../../hooks/useAudit';
+
 
 interface LoginPageProps {
   schoolContext: any;
@@ -20,6 +22,9 @@ export function LoginPage({
   onSwitchToForgotPassword,
   onLoginSuccess
 }: LoginPageProps) {
+
+  const { logAction } = useAudit();
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -35,12 +40,29 @@ export function LoginPage({
     setLoading(true);
 
     try {
+      // 1. Login API Call
       const data = await smartBadiApi.secureLogin({
         email: email.trim().toLowerCase(),
         password,
         school_id: schoolContext?.id
       });
+      // console.log("data", data);
+      // 2. Log Action with MANUAL ID Override (This fixes the "Unknown" issue)
+      await logAction(
+        'LOGIN',
+        'User Logged into System',
+        {
+          email: email,
+          school: schoolContext.name
+        },
+        {
+          // API నుండి వచ్చిన ID ని ఇక్కడ డైరెక్ట్ గా పంపుతున్నాం
+          userId: data?.profile?.id,
+          role: data?.profile?.role || 'authenticated'
+        }
+      );
 
+      // 3. Set Session
       const { error: sessionError } = await supabase.auth.setSession({
         access_token: data.session.access_token,
         refresh_token: data.session.refresh_token,
@@ -50,9 +72,18 @@ export function LoginPage({
 
       toast.success("Identity Verified. Welcome back!");
       onLoginSuccess();
+
     } catch (err: any) {
-      const edgeError = err.response?.data?.error; 
+      const edgeError = err.response?.data?.error;
       const finalMsg = edgeError || err.message || "Login failed";
+
+      // Failed login కి ID ఉండదు కాబట్టి, ఇది అలాగే ఉంచొచ్చు
+      await logAction('LOGIN_FAILED', 'Failed Login Attempt', {
+        email: email,
+        error: finalMsg,
+        school: schoolContext?.name
+      });
+
       setErrorMsg(finalMsg);
       await supabase.auth.signOut();
     } finally {

@@ -1,13 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../services/supabaseClient';
 import {
-    Plus, Trash2, Building2, Layers, X, PlusCircle, BookOpen, Sparkles, Hash, Edit3, Save, Loader2, Copy
+    Plus, Trash2, Building2, Layers, X, PlusCircle, BookOpen, Sparkles, Hash, Edit3, Save, Loader2, Copy, Calendar
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../context/AuthProvider';
 import toast from 'react-hot-toast';
-// Import skeletons
-import { ControlSkeleton, CardSkeleton } from '../../components/common/skeletoncomp';
+import { CardSkeleton } from '../../components/common/skeletoncomp';
 
 export function ClassCreation({ schoolId }: { schoolId: string }) {
     const [loading, setLoading] = useState(true);
@@ -17,6 +16,7 @@ export function ClassCreation({ schoolId }: { schoolId: string }) {
     // States
     const [newClassName, setNewClassName] = useState('');
     const [newSections, setNewSections] = useState<string[]>(['A']);
+    const [academicYear, setAcademicYear] = useState(''); 
     const [subjectRows, setSubjectRows] = useState([{ name: '', code: '' }]);
 
     // Edit States
@@ -78,19 +78,26 @@ export function ClassCreation({ schoolId }: { schoolId: string }) {
             const clonedRows = data.map(d => ({ name: d.subject_name, code: d.subject_code }));
             setSubjectRows(clonedRows);
             toast.success(`Subjects copied from ${fromClassName}!`);
-        } else {
-            toast.error("No subjects found");
         }
+    };
+
+    // --- Validation Logic ---
+    const validateAcademicYear = (year: string) => {
+        const regex = /^\d{4}-\d{4}$/;
+        return regex.test(year);
     };
 
     const addNewClass = async () => {
         if (!newClassName.trim()) return toast.error("Enter a class name");
+        if (!validateAcademicYear(academicYear)) return toast.error("Academic Year must be YYYY-YYYY format (e.g. 2025-2026)");
+
         try {
             setLoading(true);
             const classPayload = newSections.map(sec => ({
                 school_id: schoolId,
                 class_name: newClassName.trim().toUpperCase(),
-                section: sec.toUpperCase().trim()
+                section: sec.toUpperCase().trim(),
+                academic_year: academicYear // Added to Payload
             }));
 
             const { data: savedClasses, error: classError } = await supabase
@@ -128,6 +135,7 @@ export function ClassCreation({ schoolId }: { schoolId: string }) {
         }
     };
 
+    // Modal logic remains same...
     const openEditModal = async (unit: any) => {
         setEditingClass(unit);
         const { data } = await supabase.from('class_subjects').select('subject_name, subject_code').eq('class_id', unit.id);
@@ -153,7 +161,7 @@ export function ClassCreation({ schoolId }: { schoolId: string }) {
 
     return (
         <div className="space-y-8 md:space-y-12 text-left pb-24 max-w-7xl mx-auto p-3 md:p-8 bg-[#F8FAFC]">
-            {/* Header: Responsive Stacking */}
+            {/* Header */}
             <header className="flex flex-col md:flex-row justify-between items-start md:items-center bg-white p-6 md:p-10 rounded-[35px] md:rounded-[50px] shadow-sm border border-white gap-6">
                 <div className="space-y-2 text-left">
                     <div className="flex items-center gap-3">
@@ -161,12 +169,11 @@ export function ClassCreation({ schoolId }: { schoolId: string }) {
                         <h4 className="text-[9px] md:text-[10px] font-black text-blue-600 uppercase tracking-[4px]">{profile?.schools?.name}</h4>
                     </div>
                     <h1 className="text-2xl md:text-3xl font-black text-slate-800 uppercase tracking-tighter leading-none">Campus <span className="text-blue-700">Infrastructure</span></h1>
-                    <p className="text-[10px] md:text-[11px] font-bold text-slate-400 uppercase tracking-[2px] md:tracking-[3px] mt-2">Grades, Sections & Subject Mappings</p>
+                    <p className="text-[10px] md:text-[11px] font-bold text-slate-400 uppercase tracking-[2px] md:tracking-[3px] mt-2">Grades, Sections & Academic Years</p>
                 </div>
                 <div className="p-4 md:p-5 bg-slate-900 text-white rounded-[25px] md:rounded-[35px] shadow-2xl shrink-0"><Building2 size={28} /></div>
             </header>
 
-            {/* Main Builder Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
                 {/* Left Form: Builder */}
                 <div className="lg:col-span-1 bg-white p-6 md:p-10 rounded-[35px] md:rounded-[50px] shadow-xl border border-slate-50 space-y-8 text-left">
@@ -175,6 +182,23 @@ export function ClassCreation({ schoolId }: { schoolId: string }) {
                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Class Name</label>
                             <input placeholder="e.g. 10TH GRADE" className="w-full p-4 md:p-5 bg-slate-50 border-2 border-transparent rounded-[24px] md:rounded-[28px] outline-none font-black text-slate-700 shadow-inner text-sm focus:border-blue-600 focus:bg-white transition-all" value={newClassName} onChange={(e) => setNewClassName(e.target.value)} />
                         </div>
+                        
+                        {/* New Academic Year Field */}
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Academic Year</label>
+                            <div className="relative">
+                                <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
+                                <input 
+                                    placeholder="2025-2026" 
+                                    className="w-full p-4 pl-12 md:p-5 md:pl-14 bg-slate-50 border-2 border-transparent rounded-[24px] md:rounded-[28px] outline-none font-black text-slate-700 shadow-inner text-sm focus:border-blue-600 focus:bg-white transition-all" 
+                                    value={academicYear} 
+                                    maxLength={9}
+                                    onChange={(e) => setAcademicYear(e.target.value)} 
+                                />
+                            </div>
+                            <p className="text-[8px] font-bold text-slate-300 uppercase tracking-widest ml-1">Format: YYYY-YYYY</p>
+                        </div>
+
                         <div className="space-y-2">
                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Sections</label>
                             <input placeholder="A, B, C..." className="w-full p-4 md:p-5 bg-slate-50 border-2 border-transparent rounded-[24px] md:rounded-[28px] outline-none font-black text-slate-700 shadow-inner uppercase text-sm focus:border-blue-600 focus:bg-white transition-all" value={newSections.join(', ')} onChange={(e) => setNewSections(e.target.value.split(',').map(s => s.trim()))} />
@@ -185,9 +209,9 @@ export function ClassCreation({ schoolId }: { schoolId: string }) {
                     </button>
                 </div>
 
-                {/* Right Area: Subject Mapping */}
+                {/* Right Area: Map Subjects remains same... */}
                 <div className="lg:col-span-2 bg-white p-6 md:p-10 rounded-[35px] md:rounded-[50px] shadow-xl border border-slate-50 text-left">
-                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
                         <h3 className="text-md md:text-lg font-black text-slate-800 uppercase tracking-tight flex items-center gap-3">
                             <BookOpen className="text-blue-600" size={20}/> Map Subjects
                         </h3>
@@ -235,13 +259,18 @@ export function ClassCreation({ schoolId }: { schoolId: string }) {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {loading ? (
-                        // Show card skeletons while loading
                         [1, 2, 3].map(i => <CardSkeleton key={i} />)
                     ) : Object.keys(groupedClasses).map((className) => (
                         <motion.div layout key={className} className="bg-white p-6 md:p-8 rounded-[35px] md:rounded-[45px] border-2 border-slate-50 shadow-sm flex flex-col gap-6 group hover:shadow-2xl hover:border-blue-100 transition-all text-left">
-                            <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 bg-blue-700 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-blue-100"><Building2 size={24} /></div>
-                                <h3 className="text-lg md:text-xl font-black text-slate-800 tracking-tighter uppercase">{className}</h3>
+                            <div className="flex justify-between items-start">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-12 h-12 bg-blue-700 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-blue-100"><Building2 size={24} /></div>
+                                    <h3 className="text-lg md:text-xl font-black text-slate-800 tracking-tighter uppercase">{className}</h3>
+                                </div>
+                                {/* Badge for Academic Year in View */}
+                                <span className="px-3 py-1 bg-slate-900 text-white text-[8px] font-black rounded-full uppercase tracking-tighter">
+                                    {groupedClasses[className][0].academic_year}
+                                </span>
                             </div>
                             <div className="space-y-3">
                                 {groupedClasses[className].map((unit: any) => (
@@ -263,8 +292,8 @@ export function ClassCreation({ schoolId }: { schoolId: string }) {
                     ))}
                 </div>
             </div>
-
-            {/* Edit Modal: Fully Responsive */}
+            
+            {/* Modal code remains largely unchanged... */}
             <AnimatePresence>
                 {isEditModalOpen && (
                     <div className="fixed inset-0 z-[500] flex items-center justify-center p-4">

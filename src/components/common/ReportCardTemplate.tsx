@@ -1,125 +1,217 @@
 import React from 'react';
-import { ShieldCheck, Award, Star } from 'lucide-react';
+import { ShieldCheck, Star, User, Quote } from 'lucide-react';
 
 export const ReportCardTemplate = React.forwardRef(({ student, marks, schoolInfo, signatureUrl }: any, ref: any) => {
+    
+    // --- 1. Grade Calculation Logic ---
+    const calculateGrade = (obtained: number, max: number) => {
+        const pct = max > 0 ? (obtained / max) * 100 : 0;
+        if (pct >= 90) return 'A+';
+        if (pct >= 80) return 'A';
+        if (pct >= 70) return 'B+';
+        if (pct >= 60) return 'B';
+        if (pct >= 50) return 'C+';
+        if (pct >= 40) return 'C';
+        return 'F';
+    };
+
+    const getGradeColor = (grade: string) => {
+        if (grade === 'F') return 'text-red-600 bg-red-50';
+        if (grade.includes('A')) return 'text-emerald-700 bg-emerald-50';
+        return 'text-slate-700 bg-slate-100';
+    };
+
+    // --- 2. Aggregates ---
     const totalMax = marks.reduce((acc: number, curr: any) => acc + (Number(curr.max_marks) || 0), 0);
     const totalObtained = marks.reduce((acc: number, curr: any) => acc + (Number(curr.obtained_marks) || 0), 0);
     const percentage = totalMax > 0 ? ((totalObtained / totalMax) * 100).toFixed(1) : "0";
-
-    // Extracting the Exam Name from the first mark entry (e.g., Unit Test - 1)
+    const overallGrade = calculateGrade(totalObtained, totalMax);
     const examDisplayName = marks[0]?.exam_name || "Academic Evaluation";
 
     return (
         <div
             ref={ref}
-            className="p-8 bg-white border-[12px] border-double border-slate-200 min-h-[1050px] max-w-[800px] mx-auto relative font-serif text-slate-900 overflow-hidden"
-            style={{ pageBreakAfter: 'always' }}
+            // Standard A4 Dimensions: 210mm x 297mm
+            className="w-[210mm] h-[297mm] mx-auto bg-white relative font-sans text-slate-900 flex flex-col overflow-hidden print:m-0 print:h-screen"
         >
-            {/* --- WATERMARK --- */}
-            <div className="absolute inset-0 flex items-center justify-center opacity-[0.03] pointer-events-none">
-                <ShieldCheck size={500} />
+            {/* --- WATERMARK BACKGROUND --- */}
+            <div className="absolute inset-0 flex items-center justify-center opacity-[0.02] pointer-events-none z-0">
+                <ShieldCheck size={600} />
             </div>
 
-            {/* --- SCHOOL HEADER --- */}
-            <div className="text-center border-b-2 border-slate-900 pb-4 mb-4 relative">
-                <div className="absolute left-0 top-0 w-16 h-16 bg-slate-50 rounded-xl flex items-center justify-center border border-slate-100">
-                    <Star size={24} className="text-slate-300" />
-                </div>
-                <h1 className="text-3xl font-black uppercase tracking-tighter text-slate-900">{schoolInfo?.name || 'SMARTBADI ACADEMY'}</h1>
-                <p className="text-[9px] font-bold uppercase tracking-[3px] mt-1 text-slate-500">{schoolInfo?.location || 'Education Hub'}</p>
+            {/* --- DECORATIVE BORDER --- */}
+            <div className="absolute inset-0 border-[10px] border-slate-900 pointer-events-none z-50"></div>
+            <div className="absolute inset-3 border-[1px] border-slate-300 pointer-events-none z-50"></div>
 
-                {/* --- DYNAMIC EXAM NAME --- */}
-                <div className="mt-3 inline-block px-8 py-1 bg-slate-900 text-white rounded-full text-[11px] font-black uppercase tracking-[2px]">
-                    {examDisplayName} REPORT CARD
-                </div>
-                <p className="text-[9px] mt-1 font-bold text-slate-400 uppercase tracking-widest italic">Academic Year 2025-26</p>
-            </div>
-
-            {/* --- STUDENT PROFILE --- */}
-            <div className="grid grid-cols-2 gap-6 mb-6 text-[11px] bg-slate-50/50 p-4 rounded-2xl border border-slate-100">
-                <div className="space-y-1.5 text-left">
-                    <p><span className="font-black uppercase w-24 inline-block text-slate-400">Name</span> : <span className="text-slate-900 font-black uppercase">{student.full_name}</span></p>
-                    <p><span className="font-black uppercase w-24 inline-block text-slate-400">Roll No</span> : <span className="font-bold">#{student.roll_number}</span></p>
-                    <p><span className="font-black uppercase w-24 inline-block text-slate-400">Gender / DOB</span> : <span className="font-bold uppercase">{student.gender || 'M'} / {student.dob || '01-01-2015'}</span></p>
-                </div>
-                <div className="space-y-1.5 text-right">
-                    <p><span className="font-black uppercase w-24 inline-block text-slate-400">Class</span> : <span className="font-bold">{student.current_class} - {student.current_section}</span></p>
-                    <p><span className="font-black uppercase w-24 inline-block text-slate-400">Attendance</span> : <span className="font-bold text-emerald-600">94%</span></p>
-                    <p><span className="font-black uppercase w-24 inline-block text-slate-400">Issue Date</span> : <span className="font-bold">{new Date().toLocaleDateString()}</span></p>
-                </div>
-            </div>
-
-            {/* --- PERFORMANCE TABLE --- */}
-            <div className="min-h-[450px]">
-                <table className="w-full border-collapse border-[3px] border-slate-900 mb-6 text-xs shadow-lg">
-                    <thead>
-                        <tr className="bg-slate-900 text-white">
-                            <th className="border border-slate-700 p-2.5 text-left font-black uppercase tracking-widest">Subject Name</th>
-                            <th className="border border-slate-700 p-2.5 text-center font-black uppercase tracking-widest">Max</th>
-                            <th className="border border-slate-700 p-2.5 text-center font-black uppercase tracking-widest">Obtained</th>
-                            <th className="border border-slate-700 p-2.5 text-center font-black uppercase tracking-widest">Grade</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {marks.map((m: any, idx: number) => (
-                            <tr key={idx} className="hover:bg-slate-50 transition-colors">
-                                <td className="border border-slate-900 p-2.5 text-left font-bold uppercase text-slate-800">{m.subject_name}</td>
-                                <td className="border border-slate-900 p-2.5 text-center font-bold">{m.max_marks}</td>
-                                <td className="border border-slate-900 p-2.5 text-center font-black text-blue-700">{m.obtained_marks}</td>
-                                <td className="border border-slate-900 p-2.5 text-center font-black">
-                                    {m.obtained_marks >= (m.max_marks * 0.9) ? 'A+' :
-                                        m.obtained_marks >= (m.max_marks * 0.75) ? 'A' :
-                                            m.obtained_marks >= (m.max_marks * 0.35) ? 'B' : 'F'}
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                    <tfoot>
-                        <tr className="bg-slate-100 font-black border-t-[3px] border-slate-900">
-                            <td className="border border-slate-900 p-2.5 uppercase text-left">Total Aggregate</td>
-                            <td className="border border-slate-900 p-2.5 text-center">{totalMax}</td>
-                            <td className="border border-slate-900 p-2.5 text-center text-indigo-700">{totalObtained}</td>
-                            <td className="border border-slate-900 p-2.5 text-center text-indigo-700">{percentage}%</td>
-                        </tr>
-                    </tfoot>
-                </table>
-            </div>
-
-            {/* --- REMARKS SECTION --- */}
-            <div className="mb-10 p-4 border-2 border-dashed border-slate-200 rounded-xl">
-                <p className="text-[10px] font-black uppercase text-slate-400 mb-1">Teacher Remarks:</p>
-                <p className="text-xs italic text-slate-600 font-serif">Excellent performance. Keep maintaining the same consistency in core subjects.</p>
-            </div>
-
-            {/* --- SIGNATURES --- */}
-            <div className="absolute bottom-12 left-8 right-8 flex justify-between items-end">
-
-                <div className="text-center">
-                    <div className="w-32 border-b border-slate-900 mb-1"></div>
-                    <p className="text-[8px] font-black uppercase tracking-widest text-slate-400">Class Teacher</p>
-                </div>
-                <div className="flex flex-col items-center gap-1">
-                    <div className="p-2 border-2 border-double border-blue-50 rounded-full bg-blue-50/20">
-                        <Award size={36} className="text-blue-200" />
-                    </div>
-                    <p className="text-[6px] font-black uppercase text-blue-400 tracking-[2px]">Verified {schoolInfo?.name}</p>
-                </div>
-                <div className="text-center flex flex-col items-center justify-end">
-                    {signatureUrl ? (
-                        <img
-                            src={signatureUrl}
-                            alt="Principal Signature"
-                            className="h-12 w-auto mb-1 object-contain opacity-90"
-                            crossOrigin="anonymous" // Important for canvas generation
-                        />
-                    ) : (
-                        // Fallback height to keep alignment if no signature
-                        <div className="h-12 mb-1 flex items-end justify-center">
-                            <span className="text-[8px] text-slate-300 italic">No Digital Sign</span>
+            {/* === HEADER SECTION === */}
+            <div className="bg-slate-900 text-white p-8 pt-12 relative z-10 shrink-0">
+                <div className="flex justify-between items-start">
+                    <div className="flex items-center gap-5">
+                        {/* School Logo Placeholder */}
+                        <div className="w-20 h-20 bg-white rounded-2xl flex items-center justify-center text-slate-900 shadow-2xl">
+                            <Star size={40} fill="currentColor" className="text-yellow-500" />
                         </div>
-                    )}
-                    <div className="w-40 border-b border-slate-900 mb-1"></div>
-                    <p className="text-[8px] font-black uppercase tracking-widest text-slate-900">{schoolInfo?.name || 'SmartBadi Academy'}</p>
+                        <div className="space-y-1">
+                            <h1 className="text-4xl font-black uppercase tracking-tighter leading-none">
+                                {schoolInfo?.name || 'SMARTBADI ACADEMY'}
+                            </h1>
+                            <p className="text-[10px] font-bold uppercase tracking-[4px] text-slate-400 opacity-80">
+                                {schoolInfo?.location || 'Center for Excellence'}
+                            </p>
+                            <p className="text-[9px] text-slate-500">Affiliated to State Board of Education</p>
+                        </div>
+                    </div>
+                    <div className="text-right">
+                        <div className="inline-block px-5 py-2 bg-white/10 backdrop-blur-md border border-white/20 rounded-xl">
+                            <p className="text-[8px] font-black uppercase tracking-widest text-slate-400">Academic Year</p>
+                            <p className="text-lg font-black text-white tracking-widest">2025-2026</p>
+                        </div>
+                    </div>
+                </div>
+                
+                {/* Exam Title Badge */}
+                <div className="absolute -bottom-5 right-10 bg-blue-600 text-white px-8 py-2.5 rounded-xl shadow-lg border-4 border-white">
+                    <p className="text-xs font-black uppercase tracking-[3px]">{examDisplayName}</p>
+                </div>
+            </div>
+
+            {/* === BODY CONTENT === */}
+            <div className="flex-1 flex flex-col p-10 pt-12 relative z-10">
+                
+                {/* --- STUDENT PROFILE CARD --- */}
+                <div className="flex gap-8 mb-8 h-36 shrink-0 bg-slate-50 p-4 rounded-2xl border border-slate-200 shadow-sm">
+                    {/* Profile Picture */}
+                    <div className="w-28 h-28 bg-white border-4 border-white rounded-xl flex flex-col items-center justify-center text-slate-300 shadow-md overflow-hidden shrink-0">
+                        {student.avatar_url ? (
+                            <img 
+                                src={student.avatar_url} 
+                                alt="Student" 
+                                className="w-full h-full object-cover" 
+                                crossOrigin="anonymous" // Important for PDF generation
+                            />
+                        ) : (
+                            <>
+                                <User size={32} />
+                                <span className="text-[7px] font-black uppercase mt-1 tracking-widest">No Photo</span>
+                            </>
+                        )}
+                    </div>
+
+                    {/* Student Details Grid */}
+                    <div className="flex-1 grid grid-cols-2 gap-x-8 gap-y-2 content-center text-xs">
+                        <div className="border-b border-slate-200 pb-1">
+                            <p className="text-[8px] font-black uppercase text-slate-400 tracking-widest">Student Name</p>
+                            <p className="text-lg font-black text-slate-900 uppercase truncate">{student.full_name}</p>
+                        </div>
+                        <div className="border-b border-slate-200 pb-1">
+                            <p className="text-[8px] font-black uppercase text-slate-400 tracking-widest">Roll Number</p>
+                            <p className="text-base font-bold text-slate-700">#{student.roll_number}</p>
+                        </div>
+                        <div className="border-b border-slate-200 pb-1">
+                            <p className="text-[8px] font-black uppercase text-slate-400 tracking-widest">Class / Section</p>
+                            <p className="text-base font-bold text-slate-700">{student.current_class} - {student.current_section}</p>
+                        </div>
+                        <div className="border-b border-slate-200 pb-1">
+                            <p className="text-[8px] font-black uppercase text-slate-400 tracking-widest">Guardian</p>
+                            <p className="text-base font-bold text-slate-700 uppercase">{student.father_name || '---'}</p>
+                        </div>
+                    </div>
+
+                    {/* Overall Grade Widget */}
+                    <div className="w-28 h-28 rounded-full border-[6px] border-white shadow-lg bg-gradient-to-br from-blue-600 to-blue-800 flex flex-col items-center justify-center text-white shrink-0">
+                        <span className="text-5xl font-black tracking-tighter leading-none">{overallGrade}</span>
+                        <span className="text-[7px] font-bold uppercase opacity-80 mt-1">Final Grade</span>
+                    </div>
+                </div>
+
+                {/* --- MARKS TABLE --- */}
+                <div className="flex-1 mb-6 overflow-hidden rounded-xl border border-slate-200">
+                    <table className="w-full text-xs">
+                        <thead>
+                            <tr className="bg-slate-900 text-white h-10">
+                                <th className="px-6 text-left font-black uppercase tracking-widest text-[9px]">Subject</th>
+                                <th className="px-6 text-center font-black uppercase tracking-widest text-[9px]">Max Marks</th>
+                                <th className="px-6 text-center font-black uppercase tracking-widest text-[9px]">Obtained</th>
+                                <th className="px-6 text-center font-black uppercase tracking-widest text-[9px]">Percentage</th>
+                                <th className="px-6 text-center font-black uppercase tracking-widest text-[9px]">Grade</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {marks.map((m: any, idx: number) => {
+                                const max = Number(m.max_marks) || 100;
+                                const obt = Number(m.obtained_marks) || 0;
+                                const pct = max > 0 ? (obt / max) * 100 : 0;
+                                const grade = calculateGrade(obt, max);
+                                
+                                return (
+                                    <tr key={idx} className="h-11 even:bg-slate-50/50">
+                                        <td className="px-6 font-bold text-slate-700 uppercase">{m.subject_name}</td>
+                                        <td className="px-6 text-center text-slate-500 font-bold">{max}</td>
+                                        <td className="px-6 text-center font-black text-slate-900 text-sm">{obt}</td>
+                                        <td className="px-6 text-center text-slate-500 font-medium">{pct.toFixed(0)}%</td>
+                                        <td className="px-6 text-center">
+                                            <span className={`px-3 py-1 rounded-md text-[10px] font-black uppercase border ${getGradeColor(grade)}`}>
+                                                {grade}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+
+                {/* --- TOTAL SUMMARY BAR --- */}
+                <div className="flex justify-end gap-0 mb-8 shrink-0">
+                    <div className="bg-slate-900 text-white px-8 py-3 rounded-l-xl flex items-center gap-6">
+                        <div className="text-right">
+                            <p className="text-[9px] font-black uppercase opacity-60 tracking-widest">Grand Total</p>
+                            <p className="text-2xl font-black leading-none">{totalObtained} <span className="text-sm opacity-50">/ {totalMax}</span></p>
+                        </div>
+                    </div>
+                    <div className="bg-blue-600 text-white px-8 py-3 rounded-r-xl flex flex-col justify-center items-center min-w-[100px]">
+                        <p className="text-2xl font-black leading-none">{percentage}%</p>
+                        <p className="text-[8px] font-bold uppercase opacity-80 mt-1">Aggregate</p>
+                    </div>
+                </div>
+
+                {/* --- FOOTER & SIGNATURE --- */}
+                <div className="mt-auto grid grid-cols-2 gap-20 items-end">
+                    
+                    {/* Teacher Sign */}
+                    <div className="text-center relative">
+                        <div className="h-16 flex items-end justify-center mb-2">
+                            {/* Optional: Add teacher sign image here later */}
+                            <Quote size={24} className="text-slate-200 mb-2" />
+                        </div>
+                        <div className="h-0.5 bg-slate-300 w-40 mx-auto mb-2"></div>
+                        <p className="text-[10px] font-black uppercase tracking-[3px] text-slate-500">Class Teacher</p>
+                    </div>
+
+                    {/* Principal Sign (From Storage) */}
+                    <div className="text-center relative">
+                        <div className="h-16 flex items-end justify-center mb-2 relative">
+                            {signatureUrl ? (
+                                <img 
+                                    src={signatureUrl} 
+                                    alt="Principal Sign" 
+                                    className="h-16 object-contain mix-blend-multiply opacity-90 absolute bottom-0"
+                                    crossOrigin="anonymous" 
+                                />
+                            ) : (
+                                <span className="text-[8px] text-slate-300 italic mb-2">Digitally Verified</span>
+                            )}
+                        </div>
+                        <div className="h-0.5 bg-slate-900 w-40 mx-auto mb-2"></div>
+                        <p className="text-[10px] font-black uppercase tracking-[3px] text-slate-900">Principal Signature</p>
+                    </div>
+                </div>
+
+                {/* Footer Meta */}
+                <div className="w-full text-center mt-8 border-t border-slate-100 pt-4">
+                    <p className="text-[8px] text-slate-400 uppercase font-bold tracking-widest">
+                        Computer Generated Report • {new Date().toLocaleDateString()} • {schoolInfo?.name}
+                    </p>
                 </div>
             </div>
         </div>

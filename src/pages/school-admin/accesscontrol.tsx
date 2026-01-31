@@ -38,17 +38,17 @@ export function AccessControl() {
     };
 
     const filteredUsers = users.filter(u => {
-        const matchesTab = activeTab === 'staff' 
-            ? ['teacher', 'admin', 'clerk'].includes(u.role) 
+        const matchesTab = activeTab === 'staff'
+            ? ['teacher', 'admin', 'clerk'].includes(u.role)
             : u.role === activeTab;
-        const matchesSearch = u.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                             u.employee_id?.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesSearch = u.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            u.employee_id?.toLowerCase().includes(searchTerm.toLowerCase());
         return matchesTab && matchesSearch;
     });
 
     return (
         <div className="space-y-8 p-4 md:p-8 bg-[#F0F4F8] min-h-screen font-poppins pb-24 text-left">
-            
+
             {/* --- HEADER & SEARCH --- */}
             {loading ? (
                 <ControlSkeleton />
@@ -68,7 +68,7 @@ export function AccessControl() {
 
                     <div className="relative w-full lg:w-96">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
-                        <input 
+                        <input
                             type="text"
                             placeholder={`Search ${activeTab}...`}
                             className="w-full pl-12 pr-4 py-4 bg-slate-100 border-2 border-slate-200 rounded-2xl text-sm font-bold text-slate-800 outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-600 transition-all"
@@ -81,9 +81,9 @@ export function AccessControl() {
 
             {/* --- TAB NAVIGATION --- */}
             <div className="flex bg-slate-200 p-2 rounded-[25px] w-fit gap-3 shadow-inner">
-                <TabButton active={activeTab === 'staff'} icon={<Users size={18}/>} label="Staff" onClick={() => setActiveTab('staff')} />
-                <TabButton active={activeTab === 'student'} icon={<GraduationCap size={18}/>} label="Students" onClick={() => setActiveTab('student')} />
-                <TabButton active={activeTab === 'parent'} icon={<Heart size={18}/>} label="Parents" onClick={() => setActiveTab('parent')} />
+                <TabButton active={activeTab === 'staff'} icon={<Users size={18} />} label="Staff" onClick={() => setActiveTab('staff')} />
+                <TabButton active={activeTab === 'student'} icon={<GraduationCap size={18} />} label="Students" onClick={() => setActiveTab('student')} />
+                <TabButton active={activeTab === 'parent'} icon={<Heart size={18} />} label="Parents" onClick={() => setActiveTab('parent')} />
             </div>
 
             {/* --- CARDS GRID --- */}
@@ -94,7 +94,7 @@ export function AccessControl() {
                 ) : (
                     <AnimatePresence mode="popLayout">
                         {filteredUsers.map((user) => (
-                            <motion.div 
+                            <motion.div
                                 layout
                                 key={user.id}
                                 initial={{ opacity: 0, y: 20 }}
@@ -119,13 +119,14 @@ export function AccessControl() {
                                         {activeTab === 'staff' ? (
                                             <>
                                                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2 border-b border-slate-200 pb-2">
-                                                    <Lock size={12}/> Control Panel
+                                                    <Lock size={12} /> Control Panel
                                                 </p>
                                                 <div className="space-y-3">
                                                     <PermissionSwitch label="Attendance" active={user.permissions?.attendance} onClick={() => togglePermission(user.id, user.permissions, 'attendance')} />
                                                     <PermissionSwitch label="Marks Entry" active={user.permissions?.marks} onClick={() => togglePermission(user.id, user.permissions, 'marks')} />
                                                     <PermissionSwitch label="Student List" active={user.permissions?.studentlist} onClick={() => togglePermission(user.id, user.permissions, 'studentlist')} />
                                                     <PermissionSwitch label="Assignments" active={user.permissions?.assignments} onClick={() => togglePermission(user.id, user.permissions, 'assignments')} />
+                                                    <PermissionSwitch label="Leave Management" active={user.permissions?.leave} onClick={() => togglePermission(user.id, user.permissions, 'leave')} />
                                                 </div>
                                             </>
                                         ) : (
@@ -156,11 +157,10 @@ export function AccessControl() {
 
 function TabButton({ active, icon, label, onClick }: any) {
     return (
-        <button 
+        <button
             onClick={onClick}
-            className={`flex items-center gap-3 px-8 py-3.5 rounded-[20px] transition-all font-black text-[11px] uppercase tracking-widest border-2 ${
-                active ? 'bg-blue-700 text-white border-blue-800 shadow-xl scale-105' : 'bg-white text-slate-500 border-transparent hover:bg-slate-50'
-            }`}
+            className={`flex items-center gap-3 px-8 py-3.5 rounded-[20px] transition-all font-black text-[11px] uppercase tracking-widest border-2 ${active ? 'bg-blue-700 text-white border-blue-800 shadow-xl scale-105' : 'bg-white text-slate-500 border-transparent hover:bg-slate-50'
+                }`}
         >
             {icon} {label}
         </button>
@@ -169,21 +169,20 @@ function TabButton({ active, icon, label, onClick }: any) {
 
 function PermissionSwitch({ label, active, onClick }: { label: string, active: boolean, onClick: () => void }) {
     return (
-        <div 
+        <div
             onClick={(e) => { e.stopPropagation(); onClick(); }}
-            className={`flex items-center justify-between p-4 rounded-2xl cursor-pointer transition-all border-2 ${
-                active ? 'bg-white border-blue-600 shadow-md' : 'bg-slate-100 border-slate-200 opacity-80 hover:bg-white'
-            }`}
+            className={`flex items-center justify-between p-4 rounded-2xl cursor-pointer transition-all border-2 ${active ? 'bg-white border-blue-600 shadow-md' : 'bg-slate-100 border-slate-200 opacity-80 hover:bg-white'
+                }`}
         >
             <div className="flex items-center gap-3">
-                {active ? <Unlock size={16} className="text-blue-600"/> : <Lock size={16} className="text-slate-400"/>}
+                {active ? <Unlock size={16} className="text-blue-600" /> : <Lock size={16} className="text-slate-400" />}
                 <span className={`text-[11px] font-black uppercase tracking-tight ${active ? 'text-slate-900' : 'text-slate-500'}`}>
                     {label}
                 </span>
             </div>
-            
+
             <div className={`relative w-14 h-7 rounded-full transition-all flex items-center px-1 shrink-0 ${active ? 'bg-blue-600' : 'bg-slate-400'}`}>
-                <motion.div 
+                <motion.div
                     animate={{ x: active ? 28 : 0 }}
                     transition={{ type: "spring", stiffness: 500, damping: 30 }}
                     className="w-5 h-5 bg-white rounded-full shadow-lg border border-slate-200 z-10"

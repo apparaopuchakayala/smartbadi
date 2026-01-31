@@ -11,7 +11,7 @@ import { StaffManagement } from './pages/admin/staffmanagement';
 import { StudentEnrollment } from './pages/school-admin/studentenrollment';
 import { AdminDashboard } from './pages/school-admin/admin-dashboard';
 import { AccessControl } from './pages/school-admin/accesscontrol';
-import { Menu, ShieldAlert, ShieldCheck } from 'lucide-react'; // Added ShieldCheck
+import { Menu, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { HubSkeleton } from './components/common/skeletoncomp';
 import { AttenadnceMapping } from './pages/school-admin/attendancemapping';
 import { ClassCreation } from './pages/school-admin/classcreation';
@@ -22,9 +22,18 @@ import { Announcements } from './pages/school-admin/announcements';
 import { ExamManagement } from './pages/school-admin/exam-management';
 import { TeacherMarksEntry } from './pages/teacher/teacherMarksEntry';
 import { StudentList } from './components/common/studentlist';
-import {FeeManagement} from './pages/school-admin/feemanagement';
+import { FeeManagement } from './pages/school-admin/feemanagement';
 import { motion, AnimatePresence } from 'framer-motion';
-import { supabase } from './services/supabaseClient'; 
+import { supabase } from './services/supabaseClient';
+import { SuperAdminLogs } from './pages/admin/SuperAdminLogs';
+import { useAudit } from './hooks/useAudit.ts';
+import { LeaveSettings } from './pages/school-admin/leavesetting';
+import { TeacherLeaveDashboard } from './pages/teacher/teacherleavedashboard';
+import { LeaveApprovals } from './pages/school-admin/leaveapprovals';
+import { ConfirmProvider } from './context/ConfirmDialogContext';
+import { ResultDeclaration } from './pages/school-admin/resultdeclaration';
+import { StudentResults } from './pages/student/studentresult';
+// 1. Import the Floating Pill
 import './styles/global.css';
 
 const PageWrapper = ({ children }: { children: React.ReactNode }) => (
@@ -52,9 +61,10 @@ const AccessDenied = () => (
 );
 
 function AppContent() {
+  const { logAction } = useAudit();
   const { session, profile, loading } = useAuth();
   const [currentPage, setCurrentPage] = useState<string>(() => localStorage.getItem('lastActivePage') || 'landing');
-  const [isLoggingOut, setIsLoggingOut] = useState(false); // NEW STATE FOR LOGOUT ANIMATION
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [selectedSchool, setSelectedSchool] = useState<any>(() => {
     const saved = localStorage.getItem('selectedSchoolContext');
     return saved ? JSON.parse(saved) : null;
@@ -73,16 +83,15 @@ function AppContent() {
     navigateTo('login');
   };
 
-  // --- UPDATED LOGOUT LOGIC ---
   const handleLogoutAction = async () => {
     setIsLoggingOut(true);
-    // Allow animation to play for 1.2s before clearing session
     setTimeout(async () => {
       await supabase.auth.signOut();
       localStorage.clear();
       setIsLoggingOut(false);
       navigateTo('landing');
-    }, 1200);
+      await logAction('LOGOUT', 'User logged out manually');
+    }, 500);
   };
 
   useEffect(() => {
@@ -113,18 +122,14 @@ function AppContent() {
     <div className={`min-h-screen w-full flex overflow-hidden ${isAuthPage ? 'items-center justify-center bg-gray-100' : 'bg-[#f0f9ff] flex-row h-screen'}`}>
       <Toaster position="bottom-center" />
 
-      {/* --- LOGOUT OVERLAY ANIMATION --- */}
       <AnimatePresence>
         {isLoggingOut && (
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="fixed inset-0 z-[999] flex items-center justify-center bg-slate-900/60 backdrop-blur-md"
           >
             <motion.div
-              initial={{ scale: 0.8, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
+              initial={{ scale: 0.8, y: 20 }} animate={{ scale: 1, y: 0 }}
               className="bg-white p-12 rounded-[45px] shadow-2xl border-4 border-white flex flex-col items-center text-center max-w-sm mx-4"
             >
               <div className="relative mb-8">
@@ -148,12 +153,7 @@ function AppContent() {
                 Clearing Registry & Logging Out...
               </p>
               <div className="w-full h-1.5 bg-slate-100 rounded-full mt-8 overflow-hidden">
-                <motion.div
-                  initial={{ width: "0%" }}
-                  animate={{ width: "100%" }}
-                  transition={{ duration: 1 }}
-                  className="h-full bg-blue-600"
-                />
+                <motion.div initial={{ width: "0%" }} animate={{ width: "100%" }} transition={{ duration: 1 }} className="h-full bg-blue-600" />
               </div>
             </motion.div>
           </motion.div>
@@ -169,9 +169,9 @@ function AppContent() {
               onNavigate={navigateTo}
               isDesktopVisible={isSidebarVisible}
               toggleSidebar={() => setIsSidebarVisible(!isSidebarVisible)}
-              onLogout={handleLogoutAction} // PASS THE NEW LOGOUT HANDLER
+              onLogout={handleLogoutAction}
             />
-            <main className="flex-1 overflow-y-auto bg-[#f8fafc] transition-all duration-300 relative scroll-smooth">
+            <main className="flex-1 overflow-y-auto bg-[#f8fafc] transition-all duration-300 relative z-0 scroll-smooth">
               {!isSidebarVisible && (
                 <button onClick={() => setIsSidebarVisible(true)} className="hidden md:flex fixed top-6 left-6 z-50 p-3 bg-white shadow-xl rounded-2xl text-blue-600 border border-blue-50">
                   <Menu size={20} />
@@ -186,26 +186,28 @@ function AppContent() {
                     )}
                     {currentPage === 'manage-schools' && profile.role === 'super-admin' && <ManageSchools />}
                     {currentPage === 'global-staff' && profile.role === 'super-admin' && <StaffManagement />}
-                    {currentPage === 'school-staff' && profile.role === 'school-admin' && <StaffCreation />}
-                    {currentPage === 'student-hub' && profile.role === 'school-admin' && <StudentEnrollment />}
-                    {currentPage === 'admin-dashboard' && profile.role === 'school-admin' && <AdminDashboard />}
-                    {currentPage === 'access-cntrl' && profile.role === 'school-admin' && <AccessControl />}
+                    {currentPage === 'audit-logs' && profile.role === 'super-admin' && <SuperAdminLogs />}
+                    {currentPage === 'school-staff' && profile.role === 'school-admin' && <StaffCreation schoolId={activeSchoolId} />}
+                    {currentPage === 'leave-settings' && profile.role === 'school-admin' && <LeaveSettings schoolId={activeSchoolId} />}
+                    {currentPage === 'leave-approvals' && profile.role === 'school-admin' && <LeaveApprovals schoolId={activeSchoolId} />}
+                    {currentPage === 'student-hub' && profile.role === 'school-admin' && <StudentEnrollment schoolId={activeSchoolId} />}
+                    {currentPage === 'admin-dashboard' && profile.role === 'school-admin' && <AdminDashboard onNavigate={navigateTo} />}
+                    {currentPage === 'access-cntrl' && profile.role === 'school-admin' && <AccessControl schoolId={activeSchoolId} />}
                     {currentPage === 'stfplanning' && profile.role === 'school-admin' && <StaffPlanning schoolId={activeSchoolId} />}
                     {currentPage === 'exammngmt' && profile.role === 'school-admin' && <ExamManagement schoolId={activeSchoolId} />}
                     {currentPage === 'attendance-mapping' && profile.role === 'school-admin' && <AttenadnceMapping schoolId={activeSchoolId} />}
                     {currentPage === 'infra' && profile.role === 'school-admin' && <ClassCreation schoolId={activeSchoolId} />}
                     {currentPage === 'announcement' && profile.role === 'school-admin' && <Announcements schoolId={activeSchoolId} />}
                     {currentPage === 'fee-mngmnt' && profile.role === 'school-admin' && <FeeManagement schoolId={activeSchoolId} />}
+                    {currentPage === 'result-dec' && profile.role === 'school-admin' && <ResultDeclaration schoolId={activeSchoolId} />}
                     {currentPage === 'dashboard' && profile.role === 'teacher' && <TeacherDashboard onSelectClass={() => { }} />}
-                    {currentPage === 'attendance' && profile.role === 'teacher' && (
-                      profile.permissions?.attendance ? <TeacherAttendance /> : <AccessDenied />
-                    )}
-                    {currentPage === 'marks-entry' && profile.role === 'teacher' && (
-                      profile.permissions?.marks ? <TeacherMarksEntry /> : <AccessDenied />
-                    )}
-                    {currentPage === 'assignments' && profile.role === 'teacher' && (
-                      profile.permissions?.assignments ? <div className="p-8">Homework Component Content</div> : <AccessDenied />
-                    )}
+                    {currentPage === 'attendance' && profile.role === 'teacher' && (profile.permissions?.attendance ? <TeacherAttendance /> : <AccessDenied />)}
+                    {currentPage === 'marks-entry' && profile.role === 'teacher' && (profile.permissions?.marks ? <TeacherMarksEntry /> : <AccessDenied />)}
+                    {currentPage === 'leave-application' && profile.role === 'teacher' && (profile.permissions?.leave ? <TeacherLeaveDashboard /> : <AccessDenied />)}
+                    {currentPage === 'assignments' && profile.role === 'teacher' && (profile.permissions?.assignments ? <div className="p-8">Homework Component Content</div> : <AccessDenied />)}
+
+
+                    {currentPage === 'stu-result' && profile.role === 'student' && <StudentResults schoolId={activeSchoolId} />}
                   </PageWrapper>
                 </AnimatePresence>
               </div>
@@ -230,7 +232,9 @@ function AppContent() {
 export default function App() {
   return (
     <AuthProvider>
-      <AppContent />
+      <ConfirmProvider>
+        <AppContent />
+      </ConfirmProvider>
     </AuthProvider>
   );
-} 
+}

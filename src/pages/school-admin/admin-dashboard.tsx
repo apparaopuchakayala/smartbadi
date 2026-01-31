@@ -4,17 +4,22 @@ import { useAuth } from '../../context/AuthProvider';
 import {
     Users, GraduationCap, School, Activity,
     Calendar, CheckSquare, Sparkles,
-    UserPlus, ChevronRight, Target, Zap
+    UserPlus, ChevronRight, Target, Zap, PieChart
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { AttendanceSettings } from './attendancesettings';
 import { AdminMarksView } from './adminmarksview';
 import { BirthdayGreetings } from "./birthdaygreetings";
-import {PrincipalSign} from '../../components/common/principlesign';
+import { PrincipalSign } from '../../components/common/principlesign';
 // Import skeletons
 import { HubSkeleton, CardSkeleton } from '../../components/common/skeletoncomp';
+import { LeaveStats } from './leavestats';
 
-export function AdminDashboard() {
+interface AdminDashboardProps {
+    onNavigate: (page: string) => void;
+}
+
+export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
     const { profile } = useAuth();
     const [stats, setStats] = useState({
         students: 0,
@@ -117,6 +122,18 @@ export function AdminDashboard() {
                 <div className="lg:col-span-4">
                     <BirthdayGreetings />
                 </div>
+            </div>
+            <div className="animate-in slide-in-from-bottom-4 duration-500">
+                <div className="flex items-center gap-3 mb-4 px-2">
+                    <PieChart size={20} className="text-slate-400" />
+                    <h2 className="text-sm font-black text-slate-700 uppercase tracking-widest">
+                        Leave Overview
+                    </h2>
+                </div>
+                <LeaveStats
+                    schoolId={profile?.school_id}
+                    onNavigate={onNavigate}
+                />
             </div>
 
             <AttendanceSettings />

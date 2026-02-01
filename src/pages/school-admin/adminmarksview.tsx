@@ -3,8 +3,8 @@ import { supabase } from '../../services/supabaseClient';
 import { useAuth } from '../../context/AuthProvider';
 import {
     CheckCircle2, Clock, Search, Send, BookOpen,
-    BarChart3, Printer, Share2,
-    Download, Filter, User, X, GraduationCap
+    BarChart3, Printer, Share2, StopCircle,
+    Download, Filter, User, X, GraduationCap, Loader2
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useReactToPrint } from 'react-to-print';
@@ -14,16 +14,28 @@ import html2canvas from 'html2canvas';
 
 export function AdminMarksView() {
     const { profile } = useAuth();
+    
+    // --- DATA STATES ---
     const [loading, setLoading] = useState(true);
-    const [isGenerating, setIsGenerating] = useState(false);
     const [allConfigs, setAllConfigs] = useState<any[]>([]);
     const [selectedClass, setSelectedClass] = useState<string>('');
     const [searchTerm, setSearchTerm] = useState('');
     const [filter, setFilter] = useState<'ALL' | 'PENDING' | 'COMPLETED'>('ALL');
-    const [schoolSignature, setSchoolSignature] = useState(null);
+    const [schoolSignature, setSchoolSignature] = useState<string | null>(null);
 
+    // --- UI STATES ---
     const [batchStudents, setBatchStudents] = useState<any[]>([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
+    
+    // --- QUEUE SYSTEM STATES ---
+    const [isGenerating, setIsGenerating] = useState(false); 
+    const [isDistributing, setIsDistributing] = useState(false); 
+    const [classStudents, setClassStudents] = useState<any[]>([]); 
+    const [queueIndex, setQueueIndex] = useState(-1);
+    const [successCount, setSuccessCount] = useState(0);
+    const [failCount, setFailCount] = useState(0);
+    const [currentStudentForPdf, setCurrentStudentForPdf] = useState<any>(null);
+
     const reportRef = useRef<HTMLDivElement>(null);
 
     const handlePrint = useReactToPrint({
@@ -36,15 +48,108 @@ export function AdminMarksView() {
     });
 
     useEffect(() => {
-        if (profile?.school_id) fetchMarksRegistry();
+        if (profile?.school_id) {
+            fetchMarksRegistry();
+            fetchSignatureBlob();
+        }
     }, [profile]);
 
     useEffect(() => {
-        if (batchStudents.length > 0 && isGenerating) {
-            const timer = setTimeout(() => handlePrint(), 800);
+        if (batchStudents.length > 0 && isGenerating && !isDistributing) {
+            const timer = setTimeout(() => handlePrint(), 1500);
             return () => clearTimeout(timer);
         }
     }, [batchStudents, isGenerating]);
+
+    useEffect(() => {
+        if (isDistributing && queueIndex >= 0 && queueIndex < classStudents.length) {
+            processQueueItem(classStudents[queueIndex]);
+        } else if (isDistributing && queueIndex >= classStudents.length) {
+            setIsDistributing(false);
+            setQueueIndex(-1);
+            toast.success(`Distribution Complete! Sent: ${successCount}`, { duration: 5000 });
+        }
+    }, [queueIndex, isDistributing]);
+
+    // --- 3. FIX: PRECISE A4 PDF GENERATION ---
+    const processQueueItem = async (student: any) => {
+        try {
+            setCurrentStudentForPdf(student);
+
+            // Wait for React to render and images to load
+            await new Promise(resolve => setTimeout(resolve, 2000));
+
+            const element = reportRef.current;
+            if (!element) throw new Error("Template not ready");
+
+            // A4 Dimensions in Pixels (96 DPI standard)
+            const A4_WIDTH_PX = 794;
+            const A4_HEIGHT_PX = 1123;
+
+            const canvas = await html2canvas(element, {
+                scale: 2, // High resolution
+                useCORS: true,
+                logging: false,
+                width: A4_WIDTH_PX,  
+                height: A4_HEIGHT_PX,
+                windowWidth: A4_WIDTH_PX, 
+                windowHeight: A4_HEIGHT_PX,
+                x: 0,
+                y: 0,
+                scrollX: 0,
+                scrollY: 0,
+                backgroundColor: '#ffffff'
+            });
+
+            // A4 Dimensions in mm for jsPDF
+            const A4_WIDTH_MM = 210;
+            const A4_HEIGHT_MM = 297;
+
+            const imgData = canvas.toDataURL('image/jpeg', 0.95);
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            
+            // Map pixels to mm exactly
+            pdf.addImage(imgData, 'JPEG', 0, 0, A4_WIDTH_MM, A4_HEIGHT_MM);
+            
+            const pdfDataUri = pdf.output('datauristring');
+            const rawBase64 = pdfDataUri.split(',')[1];
+
+            const response = await fetch('http://localhost:3001/send-reports', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    students: [student],
+                    schoolName: profile?.schools?.name,
+                    examName: student.marks?.[0]?.exam_name || 'Term Exam',
+                    pdfBase64: rawBase64
+                })
+            });
+
+            if (!response.ok) throw new Error("Server Error");
+            setSuccessCount(prev => prev + 1);
+
+        } catch (error) {
+            console.error(`Failed: ${student.profiles.full_name}`, error);
+            setFailCount(prev => prev + 1);
+        } finally {
+            setQueueIndex(prev => prev + 1);
+        }
+    };
+
+    // --- DATA FETCHING (Same as before) ---
+    const fetchSignatureBlob = async () => {
+        try {
+            const { data } = await supabase.from('schools').select('principal_signature_url').eq('id', profile?.school_id).single();
+            if (data?.principal_signature_url) {
+                const { data: file } = supabase.storage.from('student-photos').getPublicUrl(data.principal_signature_url);
+                try {
+                    const res = await fetch(file.publicUrl);
+                    const blob = await res.blob();
+                    setSchoolSignature(URL.createObjectURL(blob));
+                } catch { setSchoolSignature(file.publicUrl); }
+            }
+        } catch (e) { console.error(e); }
+    };
 
     const fetchMarksRegistry = async () => {
         setLoading(true);
@@ -53,27 +158,14 @@ export function AdminMarksView() {
                 .from('exam_configurations')
                 .select(`id, current_class, current_section, max_marks, pass_marks, exams(exam_name), class_subjects(subject_name)`)
                 .eq('school_id', profile?.school_id);
-
             const { data: marks } = await supabase.from('student_marks').select('exam_config_id, is_uploaded');
-
             const reportData = configs?.map(config => {
                 const marksForThis = marks?.filter(m => m.exam_config_id === config.id) || [];
                 const isDone = marksForThis.length > 0 && marksForThis.every(m => m.is_uploaded);
                 return { ...config, status: isDone ? 'COMPLETED' : (marksForThis.length > 0 ? 'PENDING' : 'NOT_STARTED') };
             });
-
-            const { data: schoolData } = await supabase
-                .from('schools')
-                .select('principal_signature_url')
-                .eq('id', profile?.school_id)
-                .single();
-
-            setSchoolSignature(schoolData?.principal_signature_url);
-
             setAllConfigs(reportData || []);
-        } finally {
-            setLoading(false);
-        }
+        } finally { setLoading(false); }
     };
 
     const fetchClassData = async () => {
@@ -81,13 +173,12 @@ export function AdminMarksView() {
             .from('student_marks')
             .select(`
                 obtained_marks, 
-                profiles!inner(id, full_name, roll_number, current_class, current_section, gender, dob, father_name, father_mobile), 
+                profiles!inner(id, full_name, roll_number, current_class, current_section, gender, dob, father_name, father_mobile, avatar_url), 
                 exam_configurations!inner(max_marks, class_subjects(subject_name), exams(exam_name))
             `)
             .eq('profiles.current_class', selectedClass)
             .eq('school_id', profile?.school_id);
         if (error) throw error;
-
         return data.reduce((acc: any, curr: any) => {
             const sId = curr.profiles.id;
             if (!acc[sId]) acc[sId] = { profiles: curr.profiles, marks: [] };
@@ -101,15 +192,28 @@ export function AdminMarksView() {
         }, {});
     };
 
+    // --- BUTTON HANDLERS ---
+    const handleWhatsAppBroadcast = async () => {
+        if (!selectedClass) return;
+        try {
+            const grouped = await fetchClassData();
+            const list = Object.values(grouped);
+            if (list.length === 0) { toast.error("No students found."); return; }
+            if (!confirm(`Start WhatsApp Broadcast for ${list.length} students?`)) return;
+            setClassStudents(list);
+            setSuccessCount(0);
+            setFailCount(0);
+            setQueueIndex(0);
+            setIsDistributing(true);
+        } catch (err: any) { toast.error("Failed to fetch data"); }
+    };
+
     const handleBulkDownload = async () => {
         setIsGenerating(true);
         try {
             const grouped = await fetchClassData();
             setBatchStudents(Object.values(grouped));
-        } catch (err) {
-            toast.error("Compilation failed");
-            setIsGenerating(false);
-        }
+        } catch (err) { setIsGenerating(false); }
     };
 
     const openIndividualHub = async () => {
@@ -118,57 +222,7 @@ export function AdminMarksView() {
             const grouped = await fetchClassData();
             setBatchStudents(Object.values(grouped));
             setIsModalOpen(true);
-        } catch (err) {
-            toast.error("Failed to load students");
-        } finally {
-            setIsGenerating(false);
-        }
-    };
-
-    const handleWhatsAppBroadcast = async () => {
-        if (!selectedClass) return;
-        const loadToast = toast.loading("Syncing with WhatsApp Bot...");
-
-        try {
-            const grouped = await fetchClassData();
-            const studentsArray = Object.values(grouped);
-
-            setBatchStudents(studentsArray);
-            setIsGenerating(true);
-
-            await new Promise(res => setTimeout(res, 5000));
-
-            const element = reportRef.current;
-            if (!element) throw new Error("Template Node not found");
-
-            const canvas = await html2canvas(element, { scale: 1, useCORS: true });
-            const imgData = canvas.toDataURL('image/jpeg', 0.5);
-            const pdf = new jsPDF('p', 'mm', 'a4');
-            pdf.addImage(imgData, 'JPEG', 0, 0, 210, (canvas.height * 210) / canvas.width);
-
-            const base64PDFString = pdf.output('base64');
-
-            const response = await fetch('http://localhost:3001/send-reports', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    students: studentsArray,
-                    schoolName: profile?.schools?.name,
-                    examName: studentsArray[0]?.marks[0]?.exam_name,
-                    pdfBase64: base64PDFString
-                })
-            });
-
-            const result = await response.json();
-            if (result.success) toast.success("Process successful!", { id: loadToast });
-
-        } catch (err: any) {
-            console.error("DEBUG:", err);
-            toast.error(`Error: ${err.message}`, { id: loadToast });
-        } finally {
-            setIsGenerating(false);
-            setBatchStudents([]);
-        }
+        } catch (err) { setIsGenerating(false); }
     };
 
     const printSingle = (studentData: any) => {
@@ -191,31 +245,76 @@ export function AdminMarksView() {
     return (
         <div className="bg-white rounded-2xl md:rounded-[40px] p-3 md:p-10 shadow-sm border border-slate-200 space-y-4 md:space-y-6 relative overflow-hidden">
 
-            {/* HIDDEN PRINT NODE */}
-            <div style={{
-                position: 'absolute',
-                top: '-9999px',
-                left: '-9999px',
-                width: '210mm',
+            {/* --- FIX: HIDDEN CONTAINER --- */}
+            <div style={{ 
+                position: 'fixed', 
+                top: 0, 
+                left: 0,
+                zIndex: -50,
+                // EXACT A4 PIXEL DIMENSIONS
+                width: '794px',  
+                height: '1123px', 
+                background: 'white',
+                pointerEvents: 'none',
                 opacity: 0,
-                pointerEvents: 'none'
+                overflow: 'hidden'
             }}>
-                <div ref={reportRef}>
-                    {batchStudents.map((s: any, index: number) => (
-                        <div key={index} style={{ backgroundColor: 'white' }}>
-                            <ReportCardTemplate
-                                student={s.profiles}
-                                marks={s.marks}
-                                schoolInfo={profile?.schools}
-                                signatureUrl={schoolSignature} />
-                        </div>
-                    ))}
-                </div>
+                {currentStudentForPdf && (
+                    <div ref={reportRef} className="origin-top-left">
+                        <ReportCardTemplate
+                            student={currentStudentForPdf.profiles}
+                            marks={currentStudentForPdf.marks}
+                            schoolInfo={profile?.schools}
+                            signatureUrl={schoolSignature}
+                        />
+                    </div>
+                )}
             </div>
 
-            {/* MODAL - Improved Mobile responsiveness */}
+            {/* Case B: Physical Bulk Print (List) */}
+            {!isDistributing && (
+                <div style={{ position: 'absolute', top: '-9999px', left: '-9999px' }}>
+                    <div ref={reportRef}>
+                        {batchStudents.map((s: any, index: number) => (
+                            <div key={index} style={{ backgroundColor: 'white', marginBottom: '20px', pageBreakAfter: 'always' }}>
+                                <ReportCardTemplate
+                                    student={s.profiles}
+                                    marks={s.marks}
+                                    schoolInfo={profile?.schools}
+                                    signatureUrl={schoolSignature}
+                                />
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* --- DISTRIBUTION OVERLAY --- */}
+            {isDistributing && (
+                <div className="fixed inset-0 z-[100] bg-slate-900/90 backdrop-blur-sm flex flex-col items-center justify-center text-white">
+                    <div className="w-96 text-center space-y-8 animate-in zoom-in duration-300">
+                        <Loader2 className="animate-spin w-16 h-16 text-blue-500 mx-auto" />
+                        <div>
+                            <h2 className="text-2xl font-black uppercase tracking-widest">Sending Reports</h2>
+                            <p className="text-blue-300 font-bold mt-2">Processing {queueIndex + 1} of {classStudents.length}</p>
+                            {currentStudentForPdf && (
+                                <p className="text-sm opacity-60 mt-1">To: {currentStudentForPdf.profiles.full_name}</p>
+                            )}
+                        </div>
+                        <div className="flex justify-center gap-8 text-lg font-bold">
+                            <span className="text-emerald-400">Success: {successCount}</span>
+                            <span className="text-red-400">Failed: {failCount}</span>
+                        </div>
+                        <button onClick={() => setIsDistributing(false)} className="bg-white/10 hover:bg-red-500 px-6 py-2 rounded-full font-bold transition-all flex items-center gap-2 mx-auto">
+                            <StopCircle size={18} /> Stop
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* --- REST OF UI --- */}
             {isModalOpen && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-2 md:p-4 bg-slate-900/60 backdrop-blur-md">
+                <div className="fixed inset-0 z-[90] flex items-center justify-center p-2 md:p-4 bg-slate-900/60 backdrop-blur-md">
                     <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
                         <div className="bg-slate-900 p-4 md:p-8 text-white flex justify-between items-center shrink-0">
                             <div>
@@ -238,26 +337,18 @@ export function AdminMarksView() {
                                     </div>
                                     <div className="flex items-center gap-2 w-full sm:w-auto border-t sm:border-t-0 pt-2 sm:pt-0 justify-end">
                                         <button onClick={() => printSingle(s)} className="p-2 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-600 hover:text-white transition-all"><Printer size={16} /></button>
-                                        <button
-                                            onClick={async () => {
-                                                const totalMax = s.marks.reduce((a: number, c: any) => a + Number(c.max_marks), 0);
-                                                const totalObt = s.marks.reduce((a: number, c: any) => a + Number(c.obtained_marks), 0);
-                                                try {
-                                                    await fetch('http://localhost:3001/send-reports', {
-                                                        method: 'POST',
-                                                        headers: { 'Content-Type': 'application/json' },
-                                                        body: JSON.stringify({
-                                                            students: [{ ...s.profiles, marks: s.marks, percentage: ((totalObt / totalMax) * 100).toFixed(1) }],
-                                                            schoolName: profile?.schools?.name,
-                                                            examName: s.marks[0]?.exam_name
-                                                        })
-                                                    });
-                                                    toast.success("Sent via Server");
-                                                } catch { toast.error("Server Down"); }
+                                        <button 
+                                            onClick={() => {
+                                                setBatchStudents([]);
+                                                setClassStudents([s]);
+                                                setQueueIndex(0);
+                                                setSuccessCount(0);
+                                                setIsDistributing(true);
                                             }}
                                             className="p-2 bg-emerald-50 text-emerald-700 rounded-lg hover:bg-emerald-600 hover:text-white transition-all"
                                         >
-                                            <Share2 size={16} /></button>
+                                            <Share2 size={16} />
+                                        </button>
                                     </div>
                                 </div>
                             ))}
@@ -266,7 +357,6 @@ export function AdminMarksView() {
                 </div>
             )}
 
-            {/* HEADER - Responsive Layout */}
             <div className="flex flex-col gap-4 bg-slate-900 p-5 md:p-8 rounded-2xl md:rounded-[35px] shadow-2xl">
                 <div className="flex items-center gap-4 text-left">
                     <div className="p-3 bg-blue-600 text-white rounded-xl"><BarChart3 size={20} /></div>
@@ -291,14 +381,14 @@ export function AdminMarksView() {
 
                     {isClassReady && (
                         <div className="col-span-1 sm:col-span-2 flex flex-wrap gap-2 animate-in zoom-in duration-300">
-                            <button onClick={handleBulkDownload} disabled={isGenerating} className="flex-1 min-w-fit flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-white hover:text-slate-900 transition-all">
-                                <Download size={14} /> Generate Report Card
+                            <button onClick={handleBulkDownload} disabled={isGenerating || isDistributing} className="flex-1 min-w-fit flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-white hover:text-slate-900 transition-all">
+                                {isGenerating && !isDistributing ? <Loader2 className="animate-spin" size={14}/> : <Download size={14} />} Generate PDF
                             </button>
-                            <button onClick={handleWhatsAppBroadcast} className="flex-1 min-w-fit flex items-center justify-center gap-2 px-4 py-3 bg-emerald-500 text-white rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-emerald-600 transition-all">
+                            <button onClick={handleWhatsAppBroadcast} disabled={isGenerating || isDistributing} className="flex-1 min-w-fit flex items-center justify-center gap-2 px-4 py-3 bg-emerald-500 text-white rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-emerald-600 transition-all">
                                 <Share2 size={14} /> WhatsApp All
                             </button>
-                            <button onClick={openIndividualHub} className="flex-1 min-w-fit flex items-center justify-center gap-2 px-4 py-3 bg-slate-700 text-white rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-white hover:text-slate-900 transition-all">
-                                <User size={14} /> Individual Report card
+                            <button onClick={openIndividualHub} disabled={isGenerating || isDistributing} className="flex-1 min-w-fit flex items-center justify-center gap-2 px-4 py-3 bg-slate-700 text-white rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-white hover:text-slate-900 transition-all">
+                                <User size={14} /> Individual
                             </button>
                         </div>
                     )}
@@ -307,7 +397,6 @@ export function AdminMarksView() {
 
             {selectedClass ? (
                 <div className="space-y-4 md:space-y-6 animate-in slide-in-from-bottom-4">
-                    {/* STATS - Responsive Grid */}
                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                         <StatBox icon={<BookOpen size={16} />} title="Subjects" value={totalSubjects} color="blue" />
                         <StatBox icon={<CheckCircle2 size={16} />} title="Uploaded" value={completedSubjects} color="green" />
@@ -323,25 +412,6 @@ export function AdminMarksView() {
                         </div>
                     </div>
 
-                    {/* FILTERS - Responsive Layout */}
-                    <div className="bg-slate-50 p-3 rounded-2xl flex flex-col md:flex-row justify-between items-center gap-3 border border-slate-100">
-                        <div className="relative w-full md:w-80">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
-                            <input
-                                placeholder="Search subject..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-9 pr-4 py-2 bg-white rounded-lg text-[10px] font-bold outline-none shadow-sm"
-                            />
-                        </div>
-                        <div className="flex bg-white p-1 rounded-lg shadow-sm border border-slate-100 w-full md:w-auto overflow-x-auto">
-                            {['ALL', 'PENDING', 'COMPLETED'].map((f) => (
-                                <button key={f} onClick={() => setFilter(f as any)} className={`flex-1 md:flex-none px-3 py-1.5 rounded-md text-[8px] font-black uppercase tracking-widest transition-all ${filter === f ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400'}`}>{f}</button>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* TABLE - Responsive Scroll */}
                     <div className="bg-white rounded-2xl md:rounded-[35px] shadow-sm border border-slate-100 overflow-hidden">
                         <div className="overflow-x-auto">
                             <table className="w-full text-center border-collapse min-w-[500px]">

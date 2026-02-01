@@ -153,83 +153,70 @@ app.post('/send-custom', async (req, res) => {
 // =================================================================
 
 app.post('/send-reports', async (req, res) => {
-    // 1. డేటాను స్వీకరించండి
-    const { students, schoolName, examName, pdfBase64 } = req.body;
-
-    // 2. బాట్ రెడీగా ఉందో లేదో ప్రాథమిక చెక్
-    if (!client.info || !client.info.wid) {
-        return res.status(503).json({ error: "WhatsApp Bot is not ready yet." });
-    }
-
-    // 3. డేటా వ్యాలిడేషన్ (Crucial Fix for your Error)
-    // pdfBase64 null అయితే ఇక్కడే ఆగిపోతుంది, సర్వర్ క్రాష్ అవ్వదు
-    if (!pdfBase64 || pdfBase64 === null || pdfBase64.length < 100) {
-        console.error("❌ Error: Received null or invalid PDF data from frontend.");
-        return res.status(400).json({ error: "Missing or invalid PDF package (Received null)." });
-    }
-
-    if (!students || students.length === 0) {
-        return res.status(400).json({ error: "No students data provided." });
-    }
-
     try {
-        // 4. పిడిఎఫ్‌ని లోకల్‌గా సేవ్ చేయండి
-        const fileName = `Batch_Report_${Date.now()}.pdf`;
+        const { students, schoolName, examName, pdfBase64 } = req.body;
+
+        // 1. Check Bot Status
+        if (!client.info || !client.info.wid) {
+            return res.status(503).json({ error: "WhatsApp Bot not ready." });
+        }
+
+        // 2. Validate Data
+        if (!pdfBase64 || pdfBase64.length < 100) {
+            return res.status(400).json({ error: "Invalid PDF content received" });
+        }
+
+        console.log(`📥 Receiving PDF... Length: ${pdfBase64.length} chars`);
+
+        // 3. Save File (Direct Write)
+        const fileName = `Report_${Date.now()}_${Math.floor(Math.random() * 1000)}.pdf`;
         const filePath = path.join(__dirname, fileName);
 
-        // Base64 ని Buffer కింద మార్చి సేవ్ చేయడం ఉత్తమ పద్ధతి
-        const pdfBuffer = Buffer.from(pdfBase64, 'base64');
-        fs.writeFileSync(filePath, pdfBuffer);
+        // Since we split(',') on frontend, this is pure base64 now
+        fs.writeFileSync(filePath, Buffer.from(pdfBase64, 'base64'));
         
-        console.log(`📂 PDF successfully saved locally at: ${filePath}`);
+        // Double check file size
+        const stats = fs.statSync(filePath);
+        console.log(`✅ File Saved: ${fileName} (${(stats.size / 1024).toFixed(2)} KB)`);
 
-        // 5. వెంటనే ఫ్రంటెండ్‌కి రెస్పాన్స్ పంపండి (UI హ్యాంగ్ అవ్వకుండా)
-        res.json({ 
-            success: true, 
-            message: "PDF received and saved. Starting WhatsApp broadcast..." 
-        });
+        if (stats.size < 2000) {
+            console.warn("⚠️ Warning: File is very small (Empty PDF?)");
+        }
 
-        // 6. వాట్సాప్ పంపడం ప్రారంభించండి
+        res.json({ success: true });
+
+        // 4. Send
         const media = MessageMedia.fromFilePath(filePath);
+        
+        for (const student of students) {
+            // ... (Keep your existing sending logic here) ...
+            const { full_name, father_mobile, profiles } = student;
+            const mobile = father_mobile || (profiles && profiles.father_mobile);
+            const name = full_name || (profiles && profiles.full_name);
 
-        console.log(`\n🚀 Starting Broadcast to ${students.length} parents...`);
+            if (!mobile || mobile.length < 10) continue;
 
-        for (const [index, student] of students.entries()) {
-            const { full_name, father_mobile } = student;
-            
-            if (!father_mobile) {
-                console.log(`⚠️ Skipped: ${full_name} (No Mobile Number)`);
-                continue;
-            }
-
-            // నంబర్ ఫార్మాటింగ్
-            let digitsOnly = father_mobile.replace(/\D/g, '');
-            let finalNumber = '91' + digitsOnly.slice(-10);
-            const chatId = `${finalNumber}@c.us`;
-
-            const caption = `📊 *PROGRESS REPORT - ${schoolName}*\n\nDear Parent,\nPlease find attached the official report card for *${full_name}* regarding the *${examName}* examination.`;
+            const cleanNumber = mobile.replace(/\D/g, '').slice(-10);
+            const chatId = `91${cleanNumber}@c.us`;
+            const caption = `📊 *REPORT CARD - ${schoolName}*\n\nDear Parent,\nHere is the result for *${name}*.\n\nRegards,\nPrincipal`;
 
             try {
-                await client.sendMessage(chatId, media, { caption: caption });
-                console.log(`✅ [${index + 1}/${students.length}] Sent successfully to ${full_name}`);
-                
-                // వాట్సాప్ బ్లాక్ అవ్వకుండా 4 సెకన్ల గ్యాప్
-                await new Promise(resolve => setTimeout(resolve, 4000));
-            } catch (err) {
-                console.error(`💥 Failed to send to ${full_name}:`, err.message);
+                await client.sendMessage(chatId, media, { caption });
+                console.log(`🚀 Sent to ${name}`);
+                await delay(3000);
+            } catch (e) {
+                console.error(`❌ Send Failed: ${name}`);
             }
         }
 
-        console.log(`\n🏁 Broadcast Task Completed.`);
-        
-        // 7. పని పూర్తయ్యాక ఫైల్ ని డిలీట్ చేయడం (మెమరీ సేవ్ చేయడానికి)
-        // fs.unlinkSync(filePath); 
+        // Cleanup
+        setTimeout(() => {
+            if(fs.existsSync(filePath)) fs.unlinkSync(filePath);
+        }, 1000 * 60);
 
-    } catch (error) {
-        console.error("❌ Server side Error during processing:", error);
-        if (!res.headersSent) {
-            res.status(500).json({ error: "Server failed to process and save the PDF." });
-        }
+    } catch (err) {
+        console.error("Server Error:", err);
+        if (!res.headersSent) res.status(500).json({ error: err.message });
     }
 });
 

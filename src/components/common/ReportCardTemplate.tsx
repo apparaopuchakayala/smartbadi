@@ -2,8 +2,11 @@ import React from 'react';
 import { ShieldCheck, Star, User, Quote } from 'lucide-react';
 
 export const ReportCardTemplate = React.forwardRef(({ student, marks, schoolInfo, signatureUrl }: any, ref: any) => {
-    
-    // --- 1. Grade Calculation Logic ---
+
+    if (!student) {
+        return null;
+    }
+
     const calculateGrade = (obtained: number, max: number) => {
         const pct = max > 0 ? (obtained / max) * 100 : 0;
         if (pct >= 90) return 'A+';
@@ -61,14 +64,14 @@ export const ReportCardTemplate = React.forwardRef(({ student, marks, schoolInfo
                             <p className="text-[9px] text-slate-500">Affiliated to State Board of Education</p>
                         </div>
                     </div>
-                    <div className="text-right">
+                    <div className="text-center">
                         <div className="inline-block px-5 py-2 bg-white/10 backdrop-blur-md border border-white/20 rounded-xl">
                             <p className="text-[8px] font-black uppercase tracking-widest text-slate-400">Academic Year</p>
-                            <p className="text-lg font-black text-white tracking-widest">2025-2026</p>
+                            <p className="text-md font-black text-white tracking-widest">2026-2027</p>
                         </div>
                     </div>
                 </div>
-                
+
                 {/* Exam Title Badge */}
                 <div className="absolute -bottom-5 right-10 bg-blue-600 text-white px-8 py-2.5 rounded-xl shadow-lg border-4 border-white">
                     <p className="text-xs font-black uppercase tracking-[3px]">{examDisplayName}</p>
@@ -77,17 +80,17 @@ export const ReportCardTemplate = React.forwardRef(({ student, marks, schoolInfo
 
             {/* === BODY CONTENT === */}
             <div className="flex-1 flex flex-col p-10 pt-12 relative z-10">
-                
+
                 {/* --- STUDENT PROFILE CARD --- */}
                 <div className="flex gap-8 mb-8 h-36 shrink-0 bg-slate-50 p-4 rounded-2xl border border-slate-200 shadow-sm">
                     {/* Profile Picture */}
                     <div className="w-28 h-28 bg-white border-4 border-white rounded-xl flex flex-col items-center justify-center text-slate-300 shadow-md overflow-hidden shrink-0">
                         {student.avatar_url ? (
-                            <img 
-                                src={student.avatar_url} 
-                                alt="Student" 
-                                className="w-full h-full object-cover" 
-                                crossOrigin="anonymous" // Important for PDF generation
+                            <img
+                                src={student.avatar_url}
+                                alt="Student"
+                                className="w-full h-full object-cover"
+                                crossOrigin="anonymous"
                             />
                         ) : (
                             <>
@@ -105,14 +108,14 @@ export const ReportCardTemplate = React.forwardRef(({ student, marks, schoolInfo
                         </div>
                         <div className="border-b border-slate-200 pb-1">
                             <p className="text-[8px] font-black uppercase text-slate-400 tracking-widest">Roll Number</p>
-                            <p className="text-base font-bold text-slate-700">#{student.roll_number}</p>
+                            <p className="text-base font-bold text-slate-700">{student.roll_number}</p>
                         </div>
                         <div className="border-b border-slate-200 pb-1">
                             <p className="text-[8px] font-black uppercase text-slate-400 tracking-widest">Class / Section</p>
                             <p className="text-base font-bold text-slate-700">{student.current_class} - {student.current_section}</p>
                         </div>
                         <div className="border-b border-slate-200 pb-1">
-                            <p className="text-[8px] font-black uppercase text-slate-400 tracking-widest">Guardian</p>
+                            <p className="text-[8px] font-black uppercase text-slate-400 tracking-widest">Father    </p>
                             <p className="text-base font-bold text-slate-700 uppercase">{student.father_name || '---'}</p>
                         </div>
                     </div>
@@ -142,7 +145,7 @@ export const ReportCardTemplate = React.forwardRef(({ student, marks, schoolInfo
                                 const obt = Number(m.obtained_marks) || 0;
                                 const pct = max > 0 ? (obt / max) * 100 : 0;
                                 const grade = calculateGrade(obt, max);
-                                
+
                                 return (
                                     <tr key={idx} className="h-11 even:bg-slate-50/50">
                                         <td className="px-6 font-bold text-slate-700 uppercase">{m.subject_name}</td>
@@ -177,7 +180,7 @@ export const ReportCardTemplate = React.forwardRef(({ student, marks, schoolInfo
 
                 {/* --- FOOTER & SIGNATURE --- */}
                 <div className="mt-auto grid grid-cols-2 gap-20 items-end">
-                    
+
                     {/* Teacher Sign */}
                     <div className="text-center relative">
                         <div className="h-16 flex items-end justify-center mb-2">
@@ -192,11 +195,11 @@ export const ReportCardTemplate = React.forwardRef(({ student, marks, schoolInfo
                     <div className="text-center relative">
                         <div className="h-16 flex items-end justify-center mb-2 relative">
                             {signatureUrl ? (
-                                <img 
-                                    src={signatureUrl} 
-                                    alt="Principal Sign" 
+                                <img
+                                    src={signatureUrl}
+                                    alt="Principal Sign"
                                     className="h-16 object-contain mix-blend-multiply opacity-90 absolute bottom-0"
-                                    crossOrigin="anonymous" 
+                                    crossOrigin="anonymous"
                                 />
                             ) : (
                                 <span className="text-[8px] text-slate-300 italic mb-2">Digitally Verified</span>

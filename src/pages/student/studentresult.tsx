@@ -153,7 +153,7 @@ export function StudentResults() {
     <div className="max-w-7xl mx-auto p-4 md:p-8 space-y-8 font-poppins text-left bg-[#F8FAFC] min-h-screen">
 
       {/* 1. ULTRA-PREMIUM HEADER */}
-      <div className="relative bg-gradient-to-r from-blue-700 via-indigo-700 to-violet-700 text-white p-8 md:p-12 rounded-[45px] shadow-[0_20px_50px_-12px_rgba(79,70,229,0.4)] overflow-hidden">
+      <div className="relative bg-gradient-to-r from-blue-700 via-indigo-700 to-violet-700 text-white p-8 md:p-5 rounded-[45px] shadow-[0_20px_50px_-12px_rgba(79,70,229,0.4)] overflow-hidden">
 
         {/* Animated Background Mesh */}
         <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-white/10 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/3 pointer-events-none mix-blend-overlay"></div>
@@ -168,7 +168,7 @@ export function StudentResults() {
               <span className="text-[10px] font-bold uppercase tracking-[3px]">Academic Portal</span>
             </div>
             <div>
-              <h1 className="text-4xl md:text-6xl font-black uppercase tracking-tighter mb-3 drop-shadow-sm">
+              <h1 className="text-4xl md:text-4xl font-black uppercase tracking-tighter mb-3 drop-shadow-sm">
                 Student <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-200 to-purple-200">Results</span>
               </h1>
               <p className="text-sm md:text-base font-medium text-indigo-100/90 max-w-xl leading-relaxed mx-auto lg:mx-0">
@@ -272,7 +272,7 @@ export function StudentResults() {
                 <motion.div
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  className={`p-8 rounded-[40px] shadow-2xl text-white relative overflow-hidden transition-all duration-500 ${isAllPassed ? 'bg-emerald-500' : 'bg-slate-800'}`}
+                  className={`relative bg-gradient-to-r from-blue-700 via-indigo-700 to-violet-700 text-white p-8 md:p-5 rounded-[45px] shadow-[0_20px_50px_-12px_rgba(79,70,229,0.4)] overflow-hidden p-8 rounded-[40px] shadow-2xl text-white  transition-all duration-500 ${isAllPassed ? 'bg-blue-500' : 'bg-slate-800'}`}
                 >
                   <div className="relative z-10 flex flex-col items-center text-center">
                     <div className="mb-2 px-4 py-1 bg-black/10 rounded-full backdrop-blur-sm border border-white/10">
@@ -331,9 +331,9 @@ export function StudentResults() {
                   >
                     <div className={`absolute top-0 right-0 w-24 h-24 rounded-bl-[100px] -mr-4 -mt-4 transition-colors duration-300 ${sub.status === 'PASS' ? 'bg-emerald-50 group-hover:bg-emerald-100' : 'bg-rose-50 group-hover:bg-rose-100'}`} />
 
-                    <div className="relative z-10 flex flex-col h-full justify-between">
-                      <div className="flex justify-between items-start mb-4">
-                        <div className="flex items-center gap-4">
+                    <div className="relative z-10 flex flex-col h-full justify-between  ">
+                      <div className="flex justify-between items-start mb-4 ">
+                        <div className="flex items-center gap-4 ">
                           <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-lg shadow-inner border border-black/5 ${sub.status === 'PASS' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
                             {sub.subject.charAt(0)}
                           </div>

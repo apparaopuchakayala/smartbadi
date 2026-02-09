@@ -74,7 +74,7 @@ export function AttendanceSettings() {
     };
 
     return (
-        <div className="bg-white p-5 md:p-8 rounded-[35px] md:rounded-[45px] border-2 border-slate-100 shadow-xl text-left w-full transition-all">
+        <div className="bg-white p-5 md:p-8 rounded-[35px] md:rounded-[45px] text-left w-full transition-all">
 
             {/* --- HEADER --- */}
             <div className="flex items-center gap-4 mb-8">

@@ -119,7 +119,8 @@ function AppContent() {
   const isAuthPage = ['landing', 'login', 'forgot-password'].includes(currentPage);
 
   return (
-    <div className={`min-h-screen w-full flex overflow-hidden ${isAuthPage ? 'items-center justify-center bg-gray-100' : 'bg-[#f0f9ff] flex-row h-screen'}`}>
+    // FIX: Removed `overflow-hidden` from main wrapper to allow scrolling, managed via main tag
+    <div className={`min-h-screen w-full flex ${isAuthPage ? 'items-center justify-center bg-gray-100' : 'bg-[#f0f9ff] flex-row h-screen overflow-hidden'}`}>
       <Toaster position="bottom-center" />
 
       <AnimatePresence>
@@ -171,13 +172,15 @@ function AppContent() {
               toggleSidebar={() => setIsSidebarVisible(!isSidebarVisible)}
               onLogout={handleLogoutAction}
             />
-            <main className="flex-1 overflow-y-auto bg-[#f8fafc] transition-all duration-300 relative z-0 scroll-smooth">
+            {/* FIX: Added overflow-x-hidden and w-full to prevent horizontal layout shift */}
+            <main className="flex-1 h-full overflow-y-auto overflow-x-hidden bg-[#f8fafc] transition-all duration-300 relative z-0 scroll-smooth w-full">
               {!isSidebarVisible && (
                 <button onClick={() => setIsSidebarVisible(true)} className="hidden md:flex fixed top-6 left-6 z-50 p-3 bg-white shadow-xl rounded-2xl text-blue-600 border border-blue-50">
                   <Menu size={20} />
                 </button>
               )}
-              <div className="max-w-7xl mx-auto p-4 md:p-8 min-h-screen">
+              {/* FIX: Constrained width and removed excess margin that causes movement */}
+              <div className="w-full max-w-[100vw] mx-auto p-4 md:p-8 min-h-screen box-border">
                 <AnimatePresence mode="wait">
                   <PageWrapper key={currentPage}>
                     {currentPage === 'student-list' && (
@@ -207,7 +210,7 @@ function AppContent() {
                     {currentPage === 'assignments' && profile.role === 'teacher' && (profile.permissions?.assignments ? <div className="p-8">Homework Component Content</div> : <AccessDenied />)}
 
 
-                    {currentPage === 'stu-result' && profile.role === 'student' && <StudentResults schoolId={activeSchoolId} />}
+                    {currentPage === 'stu-result' && profile.role === 'student' && <StudentResults />}
                   </PageWrapper>
                 </AnimatePresence>
               </div>

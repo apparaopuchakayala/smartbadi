@@ -9,7 +9,7 @@ import {
     validateNumeric,
     validateStrictDate,
     getPasswordStrength
-} from '../../components/utilitis/validation.ts';
+} from '../../components/utilitis/validation';
 import {
     Users, Mail, Trash2, Loader2, X, Plus, Search,
     Crown, ShieldAlert, GraduationCap,
@@ -354,7 +354,7 @@ export function StaffCreation() {
                                             <div className="space-y-2 text-left">
                                                 <FormInput label="Secure Password" type="password" value={formData.password} onChange={(v: string) => { setFormData({ ...formData, password: v }); setPwdStrength(getPasswordStrength(v)); }} icon={<Lock size={16} />} />
                                                 <div className="flex gap-1 px-4 mt-2">
-                                                    {[1,2,3,4].map(i => <div key={i} className={`h-1 flex-1 rounded-full ${pwdStrength >= i ? 'bg-blue-600' : 'bg-slate-100'}`} />)}
+                                                    {[1, 2, 3, 4].map(i => <div key={i} className={`h-1 flex-1 rounded-full ${pwdStrength >= i ? 'bg-blue-600' : 'bg-slate-100'}`} />)}
                                                 </div>
                                             </div>
                                         </div>
@@ -369,7 +369,7 @@ export function StaffCreation() {
                                     <div className="bg-white p-6 md:p-8 rounded-[35px] shadow-sm border border-slate-100 grid grid-cols-1 md:grid-cols-2 gap-6">
                                         <FormInput label="Engagement Date" placeholder="YYYY-MM-DD" maxLength={10} value={formData.date_of_joining} onChange={(v: string) => handleDateChange('date_of_joining', v)} icon={<Calendar size={16} />} />
                                         {activeTab === 'teacher' && (
-                                             <FormSelect label="Faculty Subject" options={['GENERAL', ...globalSubjects.map(s => s.subject_name.toUpperCase())]} value={formData.subject_teaching} onChange={handleSubjectChange} icon={<BookOpen size={16} />} />
+                                            <FormSelect label="Faculty Subject" options={['GENERAL', ...globalSubjects.map(s => s.subject_name.toUpperCase())]} value={formData.subject_teaching} onChange={handleSubjectChange} icon={<BookOpen size={16} />} />
                                         )}
                                     </div>
 

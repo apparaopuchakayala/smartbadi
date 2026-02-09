@@ -39,7 +39,7 @@ export function BirthdayGreetings() {
     };
 
     return (
-        <div className="bg-white rounded-[35px] md:rounded-[45px] p-5 md:p-6 shadow-sm border border-slate-100 flex flex-col h-[400px] w-full transition-all">
+        <div className="bg-white rounded-[35px] md:rounded-[45px] p-5 md:p-6  flex flex-col h-[400px] w-full transition-all">
             {/* --- COMPACT HEADER --- */}
             <div className="flex justify-between items-center mb-6">
                 <div className="flex items-center gap-3 text-left">

@@ -261,7 +261,7 @@ export function ExamManagement() {
 
 
     return (
-        <div className="max-w-7xl mx-auto space-y-6 md:space-y-10 text-left py-6 md:py-10 font-poppins relative px-4">
+        <div className="space-y-6 md:space-y-10 text-left min-h-screen font-poppins pb-20 px-2 md:px-0">
             {/* Header */}
             <div className="flex flex-col gap-2 border-b-4 border-blue-600/10 pb-6">
                 <h1 className="text-2xl md:text-4xl font-black text-slate-800 tracking-tighter uppercase leading-none">

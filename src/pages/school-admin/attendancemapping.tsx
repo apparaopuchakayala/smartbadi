@@ -45,7 +45,7 @@ export function AttenadnceMapping({ schoolId }: { schoolId: string }) {
     }, [schoolId]);
 
     return (
-        <div className="space-y-6 md:space-y-10 text-left min-h-screen pb-20 font-poppins bg-[#F8FAFC]">
+        <div className="space-y-6 md:space-y-10 text-left min-h-screen font-poppins pb-20 px-2 md:px-0">
             {/* 1. HEADER */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 px-2">
                 <div>

@@ -137,7 +137,7 @@ export function Announcements() {
     };
 
     return (
-        <div className="max-w-7xl mx-auto p-4 md:p-8 space-y-8 font-poppins bg-[#F8FAFC] min-h-screen pb-20">
+        <div className="space-y-6 md:space-y-10 text-left min-h-screen font-poppins pb-20 px-2 md:px-0">
 
             {/* HEADER: Responsive Center/Left */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">

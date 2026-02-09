@@ -47,7 +47,7 @@ export function AccessControl() {
     });
 
     return (
-        <div className="space-y-8 p-4 md:p-8 bg-[#F0F4F8] min-h-screen font-poppins pb-24 text-left">
+        <div className="space-y-6 md:space-y-10 text-left min-h-screen font-poppins pb-20 px-2 md:px-0">
 
             {/* --- HEADER & SEARCH --- */}
             {loading ? (

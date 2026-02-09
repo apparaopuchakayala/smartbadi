@@ -174,7 +174,7 @@ app.post('/send-reports', async (req, res) => {
 
         // Since we split(',') on frontend, this is pure base64 now
         fs.writeFileSync(filePath, Buffer.from(pdfBase64, 'base64'));
-        
+
         // Double check file size
         const stats = fs.statSync(filePath);
         console.log(`✅ File Saved: ${fileName} (${(stats.size / 1024).toFixed(2)} KB)`);
@@ -187,20 +187,17 @@ app.post('/send-reports', async (req, res) => {
 
         // 4. Send
         const media = MessageMedia.fromFilePath(filePath);
-        
+
         for (const student of students) {
-            // ... (Keep your existing sending logic here) ...
-            const { full_name, father_mobile, profiles } = student;
+            const { full_name, father_name, father_mobile, profiles } = student;
             const mobile = father_mobile || (profiles && profiles.father_mobile);
             const name = full_name || (profiles && profiles.full_name);
-
+            const fathername = father_name || (profiles && profiles.father_name)
             if (!mobile || mobile.length < 10) continue;
 
             const cleanNumber = mobile.replace(/\D/g, '').slice(-10);
             const chatId = `91${cleanNumber}@c.us`;
-            const caption = `📊 *REPORT CARD - ${schoolName}*\n\nDear Parent,\nHere is the result for *${name}*.\n\nRegards,\nPrincipal`;
-
-            try {
+            const caption = `*OFFICIAL REPORT CARD*\n\nDear *${fathername}*,\n\nPlease find attached the academic performance report for *${name}* for the *${examName}*.\n\nWe encourage you to review the details to understand your child's progress.\n\nBest Regards,\nPrincipal\n*${schoolName}*`; try {
                 await client.sendMessage(chatId, media, { caption });
                 console.log(`🚀 Sent to ${name}`);
                 await delay(3000);
@@ -211,7 +208,7 @@ app.post('/send-reports', async (req, res) => {
 
         // Cleanup
         setTimeout(() => {
-            if(fs.existsSync(filePath)) fs.unlinkSync(filePath);
+            if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
         }, 1000 * 60);
 
     } catch (err) {

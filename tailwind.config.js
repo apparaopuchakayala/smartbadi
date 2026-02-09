@@ -6,8 +6,11 @@ export default {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        poppins: ['Poppins', 'sans-serif'],
+      },
       colors: {
-        border: "hsl(var(--border))", 
+        border: "hsl(var(--border))",
       },
     },
   },

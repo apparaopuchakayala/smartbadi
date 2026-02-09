@@ -160,7 +160,7 @@ export function ClassCreation({ schoolId }: { schoolId: string }) {
     };
 
     return (
-        <div className="space-y-8 md:space-y-12 text-left pb-24 max-w-7xl mx-auto p-3 md:p-8 bg-[#F8FAFC]">
+        <div className="space-y-6 md:space-y-10 text-left min-h-screen font-poppins pb-20 px-2 md:px-0">
             {/* Header */}
             <header className="flex flex-col md:flex-row justify-between items-start md:items-center bg-white p-6 md:p-10 rounded-[35px] md:rounded-[50px] shadow-sm border border-white gap-6">
                 <div className="space-y-2 text-left">

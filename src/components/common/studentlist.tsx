@@ -44,7 +44,7 @@ export function StudentList() {
     };
 
     return (
-        <div className="space-y-6 p-3 md:p-8 bg-[#F8FAFC] min-h-screen pb-20 font-poppins relative overflow-x-hidden text-left transition-all">
+        <div className="space-y-6 md:space-y-10 text-left min-h-screen font-poppins pb-20 px-2 md:px-0">
 
             {/* --- SEARCH HUB --- */}
             <div className="bg-white p-6 md:p-10 rounded-[35px] md:rounded-[45px] shadow-xl border-2 border-white flex flex-col gap-6 md:gap-10">

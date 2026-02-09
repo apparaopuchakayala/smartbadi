@@ -261,7 +261,7 @@ export function StudentEnrollment() {
     );
 
     return (
-        <div className="space-y-6 md:space-y-10 text-left min-h-screen pb-20 px-3 md:px-0 font-poppins bg-[#F8FAFC]">
+        <div className="space-y-6 md:space-y-10 text-left min-h-screen font-poppins pb-20 px-2 md:px-0">
             <AnimatePresence>
                 {isSaving && <motion.div className="fixed inset-0 z-[600] flex items-center justify-center bg-slate-900/60 backdrop-blur-md"><SchoolLoading /></motion.div>}
                 {isDeleting && <motion.div className="fixed inset-0 z-[600] flex items-center justify-center bg-red-900/20 backdrop-blur-md"><DeleteLoading /></motion.div>}

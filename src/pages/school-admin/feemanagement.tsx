@@ -15,7 +15,7 @@ export function FeeManagement() {
   const [reminderActive, setReminderActive] = useState(true);
 
   return (
-    <div className="space-y-8 font-poppins text-left pb-20">
+    <div className="space-y-6 md:space-y-10 text-left min-h-screen font-poppins pb-20 px-2 md:px-0">
       {/* --- HEADER & NAVIGATION --- */}
       <div className="bg-white p-6 rounded-[35px] shadow-sm border border-slate-100 flex flex-col md:flex-row justify-between items-center gap-6">
         <div className="flex items-center gap-4">

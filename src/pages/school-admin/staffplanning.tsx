@@ -219,7 +219,7 @@ export function StaffPlanning() {
     const availableSubjects = getAvailableSubjects();
 
     return (
-        <div className="space-y-6 md:space-y-8 text-left max-w-[1600px] mx-auto pb-20 px-3 md:px-6 font-poppins bg-[#F8FAFC]">
+        <div className="space-y-6 md:space-y-10 text-left min-h-screen font-poppins pb-20 px-2 md:px-0">
             {/* Header */}
             <header className="flex flex-col sm:flex-row justify-between items-center bg-white p-6 md:p-10 rounded-[35px] md:rounded-[50px] shadow-sm border-2 border-white gap-6">
                 <div className="space-y-2 text-center sm:text-left">
